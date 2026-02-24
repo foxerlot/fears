@@ -15,7 +15,7 @@ void buffer_load_file(const char* filename) {
     size_t len = 0;
     size_t nread;
 
-    while ((nread = getline(&line, &len, f)) != -1) {
+    while ((nread = getline(&line, &len, f)) != -1) { // find some other function instead of getline
         if (buf.numrows == buf.capacity) {
             buf.capacity = buf.capacity ? buf.capacity * 2 : 16;
             buf.rows = realloc(buf.rows, buf.capacity * sizeof(row));
