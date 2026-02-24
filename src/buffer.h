@@ -23,6 +23,6 @@ void draw(void);
 void row_insert_char(row*, int, char);
 void row_delete_char(row*, int);
 void row_split(buffer*, int, int);
-void buffer_save(void);
+int buffer_save(void);
 
 #endif

@@ -7,13 +7,13 @@
 char* current_filename = NULL;
 
 void buffer_load_file(const char* filename) {
-    current_filename = filename;
+    current_filename = (char*) filename;
     FILE* f = fopen(filename, "r");
     if (!f) return;
 
     char* line = NULL;
     size_t len = 0;
-    ssize_t nread;
+    size_t nread;
 
     while ((nread = getline(&line, &len, f)) != -1) {
         if (buf.numrows == buf.capacity) {
