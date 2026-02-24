@@ -3,14 +3,32 @@
 #include <stdlib.h>
 #include <string.h>
 
-int winrows, wincols, bufpos, lines = 0;
-char** buffer = NULL;
+typedef struct {
+    int length;
+    char* line;
+} row;
 
-void draw(void);
+typedef struct {
+    int numrows;
+    int capacity;
+    row *rows;
+} buffer;
 
-int main(int argc, char** argv)
-{
+buffer buf = {0, 0, NULL};
+int bufpos = 0;        // scroll offset
+int winrows, wincols;  // terminal size
+
+void draw(void) {
+    clear();
+    for (int i = 0; i < winrows && i + bufpos < buf.numrows; i++) {
+        mvprintw(i, 0, "%s", buf.rows[i + bufpos].line);
+    }
+    refresh();
+}
+
+int main(int argc, char** argv) {
     if (argc != 2) return 1;
+
     FILE* contents = fopen(argv[1], "r");
     if (!contents) return 1;
 
@@ -18,34 +36,40 @@ int main(int argc, char** argv)
     size_t len = 0;
     ssize_t nread;
 
-    while((nread = getline(&line, &len, contents)) != -1) {
-        buffer = realloc(buffer, (lines + 1) * sizeof(char*));
-        buffer[lines] = malloc(nread + 1);
-        strcpy(buffer[lines], line);
-        lines++;
+    while ((nread = getline(&line, &len, contents)) != -1) {
+        // grow buffer if needed
+        if (buf.numrows == buf.capacity) {
+            buf.capacity = buf.capacity ? buf.capacity * 2 : 16;
+            buf.rows = realloc(buf.rows, buf.capacity * sizeof(row));
+        }
+
+        // store line
+        buf.rows[buf.numrows].line = malloc(nread + 1);
+        strcpy(buf.rows[buf.numrows].line, line);
+        buf.rows[buf.numrows].length = nread;
+        buf.numrows++;
     }
+
     free(line);
     fclose(contents);
 
     initscr();
-    noecho();
+    keypad(stdscr, TRUE);
     raw();
+    noecho();
     getmaxyx(stdscr, winrows, wincols);
+
     draw();
 
-    int ch = 0;
-    while (true) { // qwertyuiopasdfghjklzxcvbnm
+    int ch;
+    while ((ch = getch()) != 3) {
         int curbufpos = bufpos;
-        ch = getch();
-        switch(ch) {
-        case 'q':
-            goto exit;
-            break;
-        case 'j':
-            if (bufpos < lines - 1)
+        switch (ch) {
+        case KEY_DOWN:
+            if (bufpos < buf.numrows - winrows)
                 bufpos++;
             break;
-        case 'k':
+        case KEY_UP:
             if (bufpos > 0)
                 bufpos--;
             break;
@@ -53,26 +77,11 @@ int main(int argc, char** argv)
         if (bufpos != curbufpos) draw();
     }
 
-exit:
-
     endwin();
-    for (int i = 0; i < lines; i++)
-        free(buffer[i]);
-    free(buffer);
+
+    for (int i = 0; i < buf.numrows; i++)
+        free(buf.rows[i].line);
+    free(buf.rows);
 
     return 0;
-}
-
-void draw(void)
-{
-    clear();
-
-    for (int i = 0, j = bufpos;
-         i < winrows && j < lines;
-         i++, j++)
-    {
-        mvprintw(i, 0, "%s", buffer[j]);
-    }
-
-    refresh();
 }
