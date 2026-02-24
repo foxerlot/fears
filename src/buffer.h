@@ -16,10 +16,13 @@ extern buffer buf;
 extern int cx, cy;
 extern int rowoff;
 extern int winrows, wincols;
+extern char* current_filename;
 
 void buffer_load_file(const char*);
 void draw(void);
 void row_insert_char(row*, int, char);
 void row_delete_char(row*, int);
+void row_split(buffer*, int, int);
+void buffer_save(void);
 
 #endif

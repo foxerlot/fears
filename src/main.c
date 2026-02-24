@@ -17,27 +17,6 @@ int cx = 0, cy = 0;    // cursor y, cursor x
 int rowoff = 0;        // the index of the first line in your buffer that is currently displayed at the top of the screen
 int winrows, wincols;  // window rows, window columns
 
-/* TODO ---------------------------------------------
-void row_insert_newline(row* row, int at)
-{
-    if (at < 0 || at > row->size) return;
-
-    row* new_row = malloc(sizeof(row));
-    new_row->size = row->size - at;
-    new_row->chars = malloc(new_row->size);
-    memcpy(new_row->chars, row->chars + at, new_row->size);
-
-    row->size = at;
-    row->chars = realloc(row->chars, row->size + 1);
-    row->chars[row->size] = '\n';
-
-    buf.numrows++;
-    buf.rows = realloc(buf.rows, buf.numrows * sizeof(row));
-    memmove(&buf.rows[cy + 1], &buf.rows[cy], (buf.numrows - cy - 1) * sizeof(row));
-    buf.rows[cy] = *new_row;
-}
-*/
-
 void editor_loop(void)
 {
     int ch;
@@ -49,7 +28,7 @@ void editor_loop(void)
                 exit(0);
                 break;
             case 'w': // implement this as a ex command
-                // TODO: Implement editor_save()
+                buffer_save();
                 break;
             case 'i': // insert
                 mode = MODE_INSERT;
@@ -60,14 +39,20 @@ void editor_loop(void)
             case 'j': // down
                 if (cy < buf.numrows - 1) cy++;
                 if (cy > rowoff + winrows) rowoff++;
+                if (cx > buf.rows[cy].length) cx = buf.rows[cy].length;
                 break;
             case 'k': // up
                 if (cy > 0) cy--;
                 if (cy < rowoff) rowoff--;
+                if (cx > buf.rows[cy].length) cx = buf.rows[cy].length;
                 break;
             case 'l': //right
                 if (cx < buf.rows[cy].length) cx++;
                 break;
+            case CTRL_D:
+                if (cy < buf.numrows + (winrows / 2) - 1) cy += winrows / 2;
+                if (cy > rowoff + winrows) rowoff += winrows / 2;
+                if (cy > buf.numrows) cy = buf.numrows;
             }
         } else if (mode == MODE_INSERT) {
             if (ch == ESC) { // normal
@@ -80,11 +65,11 @@ void editor_loop(void)
                     row_delete_char(&buf.rows[cy], cx - 1);
                     cx--;
                 }
-            } /*else if (ch == '\n' || ch == KEY_ENTER) { // newline handling
-                row_insert_newline(&buf.rows[cy], cx);
+            } else if (ch == '\n' || ch == KEY_ENTER) { // newline handling
+                row_split(&buf, cy, cx);
                 cy++;
                 cx = 0;
-                }*/
+            }
         }
         draw();
     }
