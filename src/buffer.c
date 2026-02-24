@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "buffer.h"
+#include "win_getline.h"
 
 char* current_filename = NULL;
 
@@ -15,7 +16,7 @@ void buffer_load_file(const char* filename) {
     size_t len = 0;
     size_t nread;
 
-    while ((nread = getline(&line, &len, f)) != -1) { // find some other function instead of getline
+    while ((nread = win_getline(&line, &len, f)) != -1) {
         if (buf.numrows == buf.capacity) {
             buf.capacity = buf.capacity ? buf.capacity * 2 : 16;
             buf.rows = realloc(buf.rows, buf.capacity * sizeof(row));
