@@ -14,7 +14,7 @@ void buffer_load_file(const char* filename) {
 
     char* line = NULL;
     size_t len = 0;
-    size_t nread;
+    int nread;
 
     while ((nread = win_getline(&line, &len, f)) != -1) {
         if (buf.numrows == buf.capacity) {
