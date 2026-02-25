@@ -3,8 +3,8 @@ WINCC       = x86_64-w64-mingw32-gcc
 
 CFLAGS      = -Wall -Wextra -Werror -Wpedantic -std=c99
 LFLAGS      = -lncurses
-WINLFLAGS   = -lpdcurses
-
+WINLFLAGS   = -L/mingw64/lib -lncursesw
+WINCFLAGS   = -Wall -Wextra -Werror -Wpedantic -std=c99 -I/mingw64/include/ncurses
 TARGET      = fears
 WIN_TARGET  = fears.exe
 
@@ -16,7 +16,7 @@ build:
 	$(CC) $(CFLAGS) $(SOURCES) $(LFLAGS) -o $(TARGET)
 
 windows:
-	$(WINCC) $(CFLAGS) $(SOURCES) $(WIN_LIBS) -o $(WIN_TARGET)
+	$(WINCC) $(WINCFLAGS) $(SOURCES) $(WINLFLAGS) -o $(WIN_TARGET)
 
 clean:
 	rm -f $(TARGET) $(WIN_TARGET)
