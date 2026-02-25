@@ -6,4 +6,4 @@
 
 ptrdiff_t win_getline(char**, size_t*, FILE*); // -1 on EOF or error
 
-#endif // WIN_GETLINE_H
+#endif
