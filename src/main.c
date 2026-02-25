@@ -4,7 +4,8 @@
 #include <string.h>
 #include <sys/types.h>
 #include "buffer.h"
-#include "keys.h"
+
+#define GLOB(x) ((void)x)
 
 typedef enum {
     MODE_NORMAL,
@@ -18,81 +19,54 @@ int cx = 0, cy = 0;    // cursor y, cursor x
 int rowoff = 0;        // the index of the first line in your buffer that is currently displayed at the top of the screen
 int winrows, wincols;  // window rows, window columns
 
-void editor_loop(void)
-{
-    int ch;
-    while ((ch = getch()) != 3)
-    {
-        if (mode == MODE_NORMAL) {
-            switch (ch) { // qwertyuiopasdfghjklzxcvbnm
-            case 'q': // implement this as a ex command
-                exit(0);
-                break;
-            case 'w': // implement this as a ex command
-                buffer_save();
-                break;
-            case 'i': // insert
-                mode = MODE_INSERT;
-                break;
-            case 'h': // left
-                if (cx > 0) cx--;
-                break;
-            case 'j': // down
-                if (cy < buf.numrows - 1) cy++;
-                if (cy > rowoff + winrows) rowoff++;
-                if (cx > buf.rows[cy].length) cx = buf.rows[cy].length;
-                break;
-            case 'k': // up
-                if (cy > 0) cy--;
-                if (cy < rowoff) rowoff--;
-                if (cx > buf.rows[cy].length) cx = buf.rows[cy].length;
-                break;
-            case 'l': //right
-                if (cx < buf.rows[cy].length) cx++;
-                break;
-            case CTRL_D:
-                if (cy < buf.numrows + (winrows / 2) - 1) cy += winrows / 2;
-                if (cy > rowoff + winrows) rowoff += winrows / 2;
-                if (cy > buf.numrows) cy = buf.numrows;
-            }
-        } else if (mode == MODE_INSERT) {
-            if (ch == ESC) { // normal
-                mode = MODE_NORMAL;
-            } else if (ch >= CHAR_START && ch <= CHAR_END) { // insert char
-                row_insert_char(&buf.rows[cy], cx, ch);
-                cx++;
-            } else if (ch == KEY_BACKSPACE || ch == DEL) { // backspace
-                if (cx > 0) {
-                    row_delete_char(&buf.rows[cy], cx - 1);
-                    cx--;
-                }
-            } else if (ch == '\n' || ch == KEY_ENTER) { // newline handling
-                row_split(&buf, cy, cx);
-                cy++;
-                cx = 0;
-            }
-        }
-        draw();
-    }
-}
+char* usage = "Usage: fears [options] [input]";
+
+void parse_args(int, char**);
+void editor_init(void);
+void editor_loop(void);
+void editor_cleanup(int);
 
 int main(int argc, char** argv)
 {
-    if (argc != 2) return 1;
-    buffer_load_file(argv[1]);
+    parse_args(argc, argv);
+    editor_init();
+    editor_loop();
+    editor_cleanup(0);
+    return 0;
+}
 
+void parse_args(int argc, char** argv)
+{
+    if (argc != 2) {
+        fprintf(stderr, "%s", usage);
+        exit(0);
+    }
+}
+
+void editor_init(void)
+{
     initscr();
     keypad(stdscr, TRUE);
     raw();
     noecho();
     getmaxyx(stdscr, winrows, wincols);
+}
 
-    draw();
-    editor_loop();
+// if (argc != 2) return 1; // TODO: implement a better argument parsing system
+// buffer_load_file(argv[1]);
 
+void editor_loop(void)
+{
+    while (true) {
+        draw();
+    }
+}
+
+void editor_cleanup(int statusc)
+{
     endwin();
     for (int i = 0; i < buf.numrows; i++)
         free(buf.rows[i].line);
     free(buf.rows);
-    return 0;
+    exit(statusc);
 }
