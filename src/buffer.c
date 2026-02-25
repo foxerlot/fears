@@ -84,20 +84,6 @@ void row_split(buffer *buf, int row_index, int at)
     buf->numrows++;
 }
 
-/* void row_insert_newline(row* row, int at) { //////////////////////////this don't work kek
-    if (at < 0 || at > row->size) return;
-    row* new_row = malloc(sizeof(row));
-    new_row->size = row->size - at;
-    new_row->chars = malloc(new_row->size);
-    memcpy(new_row->chars, row->chars + at, new_row->size);
-    row->size = at;
-    row->chars = realloc(row->chars, row->size + 1);
-    row->chars[row->size] = '\n';
-    buf.numrows++;
-    buf.rows = realloc(buf.rows, buf.numrows * sizeof(row));
-    memmove(&buf.rows[cy + 1], &buf.rows[cy], (buf.numrows - cy - 1) * sizeof(row));
-    buf.rows[cy] = *new_row; } */
-
 int buffer_save(void)
 {
     if (!current_filename) return -1;
@@ -107,7 +93,6 @@ int buffer_save(void)
 
     for (int i = 0; i < buf.numrows; i++) {
         fwrite(buf.rows[i].line, 1, buf.rows[i].length, fp);
-        fputc('\n', fp);  // add newline when saving
     }
 
     fclose(fp);
