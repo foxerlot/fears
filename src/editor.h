@@ -21,7 +21,6 @@ typedef struct {
 
 void parse_args(EditorState*, int, char**);
 void editor_init(EditorState*);
-void editor_loop(EditorState*);
 void editor_cleanup(EditorState*, int);
 
 #endif
