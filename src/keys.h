@@ -28,7 +28,6 @@
 #define CTRL_Y 25
 #define CTRL_Z 26
 
-
 #define CHAR_START 32
 #define CHAR_END   126
 #define ESC        27

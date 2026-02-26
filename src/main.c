@@ -80,7 +80,7 @@ void editor_loop(void) // eventually put this in an input.c
                 break;
             case 'j':
                 if (cy < buflist[curBuf]->numrows - 1) cy++;
-                if (cy > rowoff + winrows) rowoff = cy - winrows + 1;
+                if (cy >= rowoff + winrows) rowoff = cy - winrows + 1;
                 break;
             case 'k':
                 if (cy > 0) cy--;
@@ -118,5 +118,6 @@ void editor_cleanup(int statusc) // statusc = status code
         free(buflist[i]->rows);
         free(buflist[i]);
     }
+    free(current_filename);
     exit(statusc);
 }
