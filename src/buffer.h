@@ -14,9 +14,10 @@ typedef struct {
 } buffer;
 
 buffer* fileToBuf(const char*);
-void insertChar(row*, int, char);
-void deleteChar(row*, int);
-void insertNewline(buffer*, int, int);
-void saveBuf(buffer*);
+void    freeBuf(buffer*);
+void    insertChar(row*, int, char);
+void    deleteChar(row*, int);
+void    insertNewline(buffer*, int, int);
+void    saveBuf(buffer*);
 
 #endif

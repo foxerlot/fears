@@ -15,9 +15,14 @@ buffer* fileToBuf(const char* filename)
 
     FILE* f = fopen(filename, "r");
     if (!f) {
-        free(buf->filename);
-        free(buf);
-        return NULL;
+        // File doesn't exist — return an empty buffer with the filename preserved
+        buf->capacity = 1;
+        buf->rows = malloc(sizeof(row));
+        buf->rows[0].length = 0;
+        buf->rows[0].line = malloc(1);
+        buf->rows[0].line[0] = '\0';
+        buf->numrows = 1;
+        return buf;
     }
 
     char* line = NULL;
@@ -42,6 +47,7 @@ buffer* fileToBuf(const char* filename)
     free(line);
     fclose(f);
 
+    // Empty file — ensure at least one row
     if (buf->numrows == 0) {
         buf->capacity = 1;
         buf->rows = malloc(sizeof(row));
@@ -51,6 +57,16 @@ buffer* fileToBuf(const char* filename)
         buf->numrows = 1;
     }
     return buf;
+}
+
+void freeBuf(buffer* buf)
+{
+    if (!buf) return;
+    for (int i = 0; i < buf->numrows; i++)
+        free(buf->rows[i].line);
+    free(buf->rows);
+    free(buf->filename);
+    free(buf);
 }
 
 void insertChar(row* r, int at, char c)

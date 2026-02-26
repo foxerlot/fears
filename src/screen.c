@@ -1,4 +1,5 @@
 #include <ncurses.h>
+#include <stdlib.h>
 #include "buffer.h"
 #include "editor.h"
 #include "screen.h"
@@ -20,4 +21,13 @@ void screen_draw(buffer* buf, int cx, int cy, int rowoff, int winrows)
     if (cy >= rowoff && cy < rowoff + winrows)
         move(cy - rowoff, cx);
     refresh();
+}
+
+void editor_cleanup(EditorState* state, int statusc)
+{
+    for (int i = 0; i < MAX_BUFFERS; i++)
+        if (state->buflist[i])
+            freeBuf(state->buflist[i]);
+    endwin();
+    exit(statusc);
 }

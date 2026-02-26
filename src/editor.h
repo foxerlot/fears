@@ -19,7 +19,4 @@ typedef struct {
     int winrows, wincols;
 } EditorState;
 
-void parse_args(EditorState*, int, char**);
-void editor_cleanup(EditorState*, int);
-
 #endif
