@@ -19,4 +19,8 @@ typedef struct {
     int winrows, wincols;
 } EditorState;
 
+EditorState editor_open(int argc, char** argv);
+void        editor_run(EditorState*);
+void        editor_cleanup(EditorState*, int);
+
 #endif

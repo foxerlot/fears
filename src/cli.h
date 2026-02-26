@@ -1,8 +1,6 @@
 #ifndef CLI_H
 #define CLI_H
 
-#include "editor.h"
-
-void parse_args(EditorState*, int, char**);
+const char* parse_args(int argc, char** argv);
 
 #endif
