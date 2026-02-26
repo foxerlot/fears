@@ -45,8 +45,19 @@ void parse_args(int argc, char** argv)
     }
     buflist[curBuf] = fileToBuf(argv[1]);
     if (!buflist[curBuf]) {
-        fprintf(stderr, "Failed to open file: %s\n", argv[1]);
-        exit(1);
+        // File doesn't exist — create a new empty buffer with that filename
+        current_filename = strdup(argv[1]);
+        buflist[curBuf] = malloc(sizeof(buffer));
+        if (!buflist[curBuf]) {
+            fprintf(stderr, "Out of memory\n");
+            exit(1);
+        }
+        buflist[curBuf]->numrows = 1;
+        buflist[curBuf]->capacity = 1;
+        buflist[curBuf]->rows = malloc(sizeof(row));
+        buflist[curBuf]->rows[0].length = 0;
+        buflist[curBuf]->rows[0].line = malloc(1);
+        buflist[curBuf]->rows[0].line[0] = '\0';
     }
 }
 
@@ -59,53 +70,135 @@ void editor_init(void)
     getmaxyx(stdscr, winrows, wincols);
 }
 
-void editor_loop(void) // eventually put this in an input.c
+void editor_loop(void)
 {
     int ch;
+
+    draw(buflist[curBuf]);
+
     while (true) {
+
         ch = getch();
-        if (mode == MODE_NORMAL){
-            switch (ch) { // qwertyuiopasdfghjklzxcvbnm
+
+        buffer* buf = buflist[curBuf];
+        row* currow = &buf->rows[cy];
+
+        if (mode == MODE_NORMAL) {
+
+            switch (ch) {
+
             case 'q':
                 return;
-                break;
+
             case 'w':
-                saveBuf(buflist[curBuf]);
+                saveBuf(buf);
                 break;
+
             case 'i':
                 mode = MODE_INSERT;
                 break;
+
+            // Arrow keys
+            case KEY_LEFT:
             case 'h':
-                if (cx > 0) cx--;
+                if (cx > 0) {
+                    cx--;
+                } else if (cy > 0) {
+                    cy--;
+                    cx = buf->rows[cy].length;
+                }
                 break;
-            case 'j':
-                if (cy < buflist[curBuf]->numrows - 1) cy++;
-                if (cy >= rowoff + winrows) rowoff = cy - winrows + 1;
-                break;
-            case 'k':
-                if (cy > 0) cy--;
-                if (cy < rowoff) rowoff = cy;
-                break;
+
+            case KEY_RIGHT:
             case 'l':
-                if (cx < buflist[curBuf]->rows[cy].length) cx++;
+                if (cx < currow->length) {
+                    cx++;
+                } else if (cy < buf->numrows - 1) {
+                    cy++;
+                    cx = 0;
+                }
+                break;
+
+            case KEY_UP:
+            case 'k':
+                if (cy > 0)
+                    cy--;
+                break;
+
+            case KEY_DOWN:
+            case 'j':
+                if (cy < buf->numrows - 1)
+                    cy++;
+                break;
+
+            case KEY_BACKSPACE:
+            case 127:
+                if (cx > 0) {
+                    deleteChar(currow, cx - 1);
+                    cx--;
+                }
+                break;
+
+            case KEY_DC:  // Delete key
+                if (cx < currow->length) {
+                    deleteChar(currow, cx);
+                }
                 break;
             }
+
         } else if (mode == MODE_INSERT) {
+
             if (ch == ESC) {
+
                 mode = MODE_NORMAL;
-            } else if (ch >= CHAR_START && ch <= CHAR_END) {
-                insertChar(&buflist[curBuf]->rows[cy], cx, ch);
-                cx++;
-            } else if (ch == KEY_BACKSPACE || ch == DEL) {
-                deleteChar(&buflist[curBuf]->rows[cy], cx-1);
-                cx--;
-            } else if (ch == KEY_ENTER || ch == CR) {
-                insertNewline(buflist[curBuf], cy, cx);
+
+            } else if (ch == KEY_BACKSPACE || ch == 127) {
+
+                if (cx > 0) {
+                    deleteChar(currow, cx - 1);
+                    cx--;
+                }
+
+            } else if (ch == KEY_DC) {
+
+                if (cx < currow->length) {
+                    deleteChar(currow, cx);
+                }
+
+            } else if (ch == KEY_ENTER || ch == '\n' || ch == '\r') {
+
+                insertNewline(buf, cy, cx);
                 cy++;
                 cx = 0;
+
+            } else if (ch >= CHAR_START && ch <= CHAR_END) {
+
+                insertChar(currow, cx, ch);
+                cx++;
             }
         }
-        draw(buflist[curBuf]);
+
+        // Fix cursor bounds after movement
+        if (cy >= buf->numrows)
+            cy = buf->numrows - 1;
+
+        if (cy < 0)
+            cy = 0;
+
+        if (cx > buf->rows[cy].length)
+            cx = buf->rows[cy].length;
+
+        if (cx < 0)
+            cx = 0;
+
+        // Scroll handling
+        if (cy < rowoff)
+            rowoff = cy;
+
+        if (cy >= rowoff + winrows)
+            rowoff = cy - winrows + 1;
+
+        draw(buf);
     }
 }
 
