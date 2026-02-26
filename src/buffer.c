@@ -5,22 +5,26 @@
 #include "buffer.h"
 #include "win_getline.h"
 
-char* current_filename = NULL;
-
 buffer* fileToBuf(const char* filename)
 {
-    current_filename = strdup(filename);
-    FILE* f = fopen(filename, "r");
-    if (!f) return NULL;
-
-    char* line = NULL;
-    size_t len = 0;
-    int nread;
     buffer* buf = malloc(sizeof(buffer));
     if (!buf) return NULL;
     buf->numrows = 0;
     buf->capacity = 0;
     buf->rows = NULL;
+    buf->filename = strdup(filename);  // owned by the buffer, set before fopen
+                                       // so filename is preserved even if file doesn't exist
+
+    FILE* f = fopen(filename, "r");
+    if (!f) {
+        free(buf->filename);
+        free(buf);
+        return NULL;
+    }
+
+    char* line = NULL;
+    size_t len = 0;
+    int nread;
 
     while ((nread = win_getline(&line, &len, f)) != -1) {
         if (nread > 0 && line[nread - 1] == '\n') {
@@ -28,7 +32,7 @@ buffer* fileToBuf(const char* filename)
             nread--;
         }
         if (buf->numrows == buf->capacity) {
-            buf->capacity = buf->capacity ? buf->capacity * 2 : 16; // 16 is arbitrary
+            buf->capacity = buf->capacity ? buf->capacity * 2 : 16;
             buf->rows = realloc(buf->rows, buf->capacity * sizeof(row));
         }
         buf->rows[buf->numrows].line = malloc(nread + 1);
@@ -39,6 +43,7 @@ buffer* fileToBuf(const char* filename)
 
     free(line);
     fclose(f);
+
     if (buf->numrows == 0) {
         buf->capacity = 1;
         buf->rows = malloc(sizeof(row));
@@ -107,15 +112,14 @@ void insertNewline(buffer* buf, int row_index, int at)
 
     r->length = at;
     r->line[at] = '\0';
+
     if (buf->numrows == buf->capacity) {
         int new_capacity = buf->capacity ? buf->capacity * 2 : 16;
-
         row* tmp = realloc(buf->rows, new_capacity * sizeof(row));
         if (!tmp) {
             free(new_row.line);
             return;
         }
-
         buf->rows = tmp;
         buf->capacity = new_capacity;
     }
@@ -130,8 +134,8 @@ void insertNewline(buffer* buf, int row_index, int at)
 
 void saveBuf(buffer* buf)
 {
-    if (!buf || !current_filename) return;
-    FILE* f = fopen(current_filename, "w");
+    if (!buf || !buf->filename) return;
+    FILE* f = fopen(buf->filename, "w");
     if (!f) return;
 
     for (int i = 0; i < buf->numrows; i++) {

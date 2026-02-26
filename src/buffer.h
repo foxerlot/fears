@@ -10,12 +10,12 @@ typedef struct {
     int numrows;
     int capacity;
     row *rows;
+    char* filename;   // moved from global current_filename in buffer.c
 } buffer;
 
 extern int cx, cy;
 extern int rowoff;
 extern int winrows, wincols;
-extern char* current_filename;
 
 buffer* fileToBuf(const char*);
 void draw(buffer*);

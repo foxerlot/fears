@@ -17,9 +17,9 @@ EditorMode mode = MODE_NORMAL;
 buffer* buflist[8];
 int curBuf = 0;
 
-int cx = 0, cy = 0;    // cursor y, cursor x
-int rowoff = 0;        // the index of the first line in your buffer that is currently displayed at the top of the screen
-int winrows, wincols;  // window rows, window columns
+int cx = 0, cy = 0;
+int rowoff = 0;
+int winrows, wincols;
 
 char* usage = "Usage: fears [options] [input]";
 
@@ -46,12 +46,12 @@ void parse_args(int argc, char** argv)
     buflist[curBuf] = fileToBuf(argv[1]);
     if (!buflist[curBuf]) {
         // File doesn't exist — create a new empty buffer with that filename
-        current_filename = strdup(argv[1]);
         buflist[curBuf] = malloc(sizeof(buffer));
         if (!buflist[curBuf]) {
             fprintf(stderr, "Out of memory\n");
             exit(1);
         }
+        buflist[curBuf]->filename = strdup(argv[1]);  // was: current_filename = strdup(argv[1])
         buflist[curBuf]->numrows = 1;
         buflist[curBuf]->capacity = 1;
         buflist[curBuf]->rows = malloc(sizeof(row));
@@ -98,7 +98,6 @@ void editor_loop(void)
                 mode = MODE_INSERT;
                 break;
 
-            // Arrow keys
             case KEY_LEFT:
             case 'h':
                 if (cx > 0) {
@@ -139,7 +138,7 @@ void editor_loop(void)
                 }
                 break;
 
-            case KEY_DC:  // Delete key
+            case KEY_DC:
                 if (cx < currow->length) {
                     deleteChar(currow, cx);
                 }
@@ -202,15 +201,16 @@ void editor_loop(void)
     }
 }
 
-void editor_cleanup(int statusc) // statusc = status code
+void editor_cleanup(int statusc)
 {
     endwin();
-    for (int i = 0; i < 8; i++) { // 8 is the size of buflist, prob make this a macro...
+    for (int i = 0; i < 8; i++) {
+        if (!buflist[i]) continue;
         for (int j = 0; j < buflist[i]->numrows; j++)
             free(buflist[i]->rows[j].line);
         free(buflist[i]->rows);
+        free(buflist[i]->filename);   // was: free(current_filename)
         free(buflist[i]);
     }
-    free(current_filename);
     exit(statusc);
 }
