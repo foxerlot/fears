@@ -1,5 +1,5 @@
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "buffer.h"
 #include "cli.h"
 #include "editor.h"
@@ -18,7 +18,6 @@ EditorState editor_open(int argc, char** argv)
         .wincols = 0,
     };
 
-    // cli.c gives us the filename, buffer.c loads it
     const char* filename = parse_args(argc, argv);
     state.buflist[state.curBuf] = fileToBuf(filename);
     if (!state.buflist[state.curBuf]) {
@@ -26,15 +25,17 @@ EditorState editor_open(int argc, char** argv)
         exit(1);
     }
 
-    // screen.c initialises ncurses and fills in winrows/wincols
-    screen_init(&state);
-
     return state;
+}
+
+void editor_init(EditorState* state)
+{
+    screen_init(&state->winrows, &state->wincols);
 }
 
 void editor_run(EditorState* state)
 {
-    editor_loop(state);
+    input_loop(state);
 }
 
 void editor_cleanup(EditorState* state, int statusc)

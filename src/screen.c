@@ -1,15 +1,14 @@
 #include <ncurses.h>
 #include "buffer.h"
-#include "editor.h"
 #include "screen.h"
 
-void screen_init(EditorState* state)
+void screen_init(int* winrows, int* wincols)
 {
     initscr();
     keypad(stdscr, TRUE);
     raw();
     noecho();
-    getmaxyx(stdscr, state->winrows, state->wincols);
+    getmaxyx(stdscr, *winrows, *wincols);
 }
 
 void screen_draw(buffer* buf, int cx, int cy, int rowoff, int winrows)

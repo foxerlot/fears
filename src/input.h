@@ -3,6 +3,6 @@
 
 #include "editor.h"
 
-void editor_loop(EditorState*);
+void input_loop(EditorState*);
 
 #endif

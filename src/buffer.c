@@ -4,6 +4,16 @@
 #include "buffer.h"
 #include "win_getline.h"
 
+static void init_empty_buf(buffer* buf)
+{
+    buf->capacity = 1;
+    buf->rows = malloc(sizeof(row));
+    buf->rows[0].length = 0;
+    buf->rows[0].line = malloc(1);
+    buf->rows[0].line[0] = '\0';
+    buf->numrows = 1;
+}
+
 buffer* fileToBuf(const char* filename)
 {
     buffer* buf = malloc(sizeof(buffer));
@@ -16,12 +26,7 @@ buffer* fileToBuf(const char* filename)
     FILE* f = fopen(filename, "r");
     if (!f) {
         // File doesn't exist — return an empty buffer with the filename preserved
-        buf->capacity = 1;
-        buf->rows = malloc(sizeof(row));
-        buf->rows[0].length = 0;
-        buf->rows[0].line = malloc(1);
-        buf->rows[0].line[0] = '\0';
-        buf->numrows = 1;
+        init_empty_buf(buf);
         return buf;
     }
 
@@ -48,14 +53,9 @@ buffer* fileToBuf(const char* filename)
     fclose(f);
 
     // Empty file — ensure at least one row
-    if (buf->numrows == 0) {
-        buf->capacity = 1;
-        buf->rows = malloc(sizeof(row));
-        buf->rows[0].length = 0;
-        buf->rows[0].line = malloc(1);
-        buf->rows[0].line[0] = '\0';
-        buf->numrows = 1;
-    }
+    if (buf->numrows == 0)
+        init_empty_buf(buf);
+
     return buf;
 }
 

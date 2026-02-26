@@ -20,6 +20,7 @@ typedef struct {
 } EditorState;
 
 EditorState editor_open(int argc, char** argv);
+void        editor_init(EditorState*);
 void        editor_run(EditorState*);
 void        editor_cleanup(EditorState*, int);
 

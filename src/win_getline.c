@@ -1,8 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
+#include "win_getline.h"
 
-ptrdiff_t win_getline(char **lineptr, size_t *n, FILE *stream) // -1 on EOF or error
+// Returns the number of characters read, or -1 on EOF or error.
+// Uses ptrdiff_t instead of ssize_t because ssize_t is a POSIX type
+// not available on Windows (MSVC/MinGW). ptrdiff_t is standard C99
+// and safely holds both positive sizes and the -1 sentinel value.
+ptrdiff_t win_getline(char **lineptr, size_t *n, FILE *stream)
 {
     if (!lineptr || !n || !stream)
         return -1;
@@ -24,7 +29,6 @@ ptrdiff_t win_getline(char **lineptr, size_t *n, FILE *stream) // -1 on EOF or e
             char *new_ptr = (char *)realloc(*lineptr, new_size);
             if (!new_ptr)
                 return -1;
-
             *lineptr = new_ptr;
             *n = new_size;
         }

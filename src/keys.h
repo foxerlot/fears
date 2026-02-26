@@ -1,6 +1,7 @@
 #ifndef KEYS_H
 #define KEYS_H
 
+// Reserved for future key binding implementations
 #define CTRL_A 1
 #define CTRL_B 2
 #define CTRL_C 3

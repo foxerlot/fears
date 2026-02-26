@@ -6,7 +6,7 @@
 #include "keys.h"
 #include "screen.h"
 
-void editor_loop(EditorState* state)
+void input_loop(EditorState* state)
 {
     int ch;
 

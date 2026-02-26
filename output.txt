@@ -1,0 +1,590 @@
+//buffer.c
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "buffer.h"
+#include "win_getline.h"
+
+buffer* fileToBuf(const char* filename)
+{
+    buffer* buf = malloc(sizeof(buffer));
+    if (!buf) return NULL;
+    buf->numrows = 0;
+    buf->capacity = 0;
+    buf->rows = NULL;
+    buf->filename = strdup(filename);
+
+    FILE* f = fopen(filename, "r");
+    if (!f) {
+        // File doesn't exist — return an empty buffer with the filename preserved
+        buf->capacity = 1;
+        buf->rows = malloc(sizeof(row));
+        buf->rows[0].length = 0;
+        buf->rows[0].line = malloc(1);
+        buf->rows[0].line[0] = '\0';
+        buf->numrows = 1;
+        return buf;
+    }
+
+    char* line = NULL;
+    size_t len = 0;
+    int nread;
+
+    while ((nread = win_getline(&line, &len, f)) != -1) {
+        if (nread > 0 && line[nread - 1] == '\n') {
+            line[nread - 1] = '\0';
+            nread--;
+        }
+        if (buf->numrows == buf->capacity) {
+            buf->capacity = buf->capacity ? buf->capacity * 2 : 16;
+            buf->rows = realloc(buf->rows, buf->capacity * sizeof(row));
+        }
+        buf->rows[buf->numrows].line = malloc(nread + 1);
+        strcpy(buf->rows[buf->numrows].line, line);
+        buf->rows[buf->numrows].length = nread;
+        buf->numrows++;
+    }
+
+    free(line);
+    fclose(f);
+
+    // Empty file — ensure at least one row
+    if (buf->numrows == 0) {
+        buf->capacity = 1;
+        buf->rows = malloc(sizeof(row));
+        buf->rows[0].length = 0;
+        buf->rows[0].line = malloc(1);
+        buf->rows[0].line[0] = '\0';
+        buf->numrows = 1;
+    }
+    return buf;
+}
+
+void freeBuf(buffer* buf)
+{
+    if (!buf) return;
+    for (int i = 0; i < buf->numrows; i++)
+        free(buf->rows[i].line);
+    free(buf->rows);
+    free(buf->filename);
+    free(buf);
+}
+
+void insertChar(row* r, int at, char c)
+{
+    if (!r) return;
+    if (at < 0) at = 0;
+    if (at > r->length) at = r->length;
+
+    r->line = realloc(r->line, r->length + 2);
+    memmove(&r->line[at + 1], &r->line[at], r->length - at + 1);
+    r->line[at] = c;
+    r->length++;
+}
+
+void deleteChar(row* r, int at)
+{
+    if (!r) return;
+    if (at < 0 || at >= r->length) return;
+    memmove(&r->line[at],
+            &r->line[at + 1],
+            r->length - at);
+    r->length--;
+    char* tmp = realloc(r->line, r->length + 1);
+    if (tmp) r->line = tmp;
+}
+
+void insertNewline(buffer* buf, int row_index, int at)
+{
+    if (!buf) return;
+    if (row_index < 0 || row_index >= buf->numrows) return;
+    row* r = &buf->rows[row_index];
+    if (at < 0) at = 0;
+    if (at > r->length) at = r->length;
+    int right_len = r->length - at;
+
+    row new_row;
+    new_row.length = right_len;
+    new_row.line = malloc(right_len + 1);
+    if (!new_row.line) return;
+
+    memcpy(new_row.line, r->line + at, right_len);
+    new_row.line[right_len] = '\0';
+
+    r->length = at;
+    r->line[at] = '\0';
+
+    if (buf->numrows == buf->capacity) {
+        int new_capacity = buf->capacity ? buf->capacity * 2 : 16;
+        row* tmp = realloc(buf->rows, new_capacity * sizeof(row));
+        if (!tmp) {
+            free(new_row.line);
+            return;
+        }
+        buf->rows = tmp;
+        buf->capacity = new_capacity;
+    }
+
+    memmove(&buf->rows[row_index + 2],
+            &buf->rows[row_index + 1],
+            (buf->numrows - row_index - 1) * sizeof(row));
+
+    buf->rows[row_index + 1] = new_row;
+    buf->numrows++;
+}
+
+void saveBuf(buffer* buf)
+{
+    if (!buf || !buf->filename) return;
+    FILE* f = fopen(buf->filename, "w");
+    if (!f) return;
+
+    for (int i = 0; i < buf->numrows; i++) {
+        fwrite(buf->rows[i].line, 1, buf->rows[i].length, f);
+        fputc('\n', f);
+    }
+
+    fclose(f);
+}
+
+//buffer.h
+
+#ifndef BUFFER_H
+#define BUFFER_H
+
+typedef struct {
+    int length;
+    char* line;
+} row;
+
+typedef struct {
+    int numrows;
+    int capacity;
+    row *rows;
+    char* filename;
+} buffer;
+
+buffer* fileToBuf(const char*);
+void    freeBuf(buffer*);
+void    insertChar(row*, int, char);
+void    deleteChar(row*, int);
+void    insertNewline(buffer*, int, int);
+void    saveBuf(buffer*);
+
+#endif
+
+//cli.c
+
+#include <stdio.h>
+#include <stdlib.h>
+#include "cli.h"
+
+static const char* usage = "Usage: fears [options] [input]";
+
+const char* parse_args(int argc, char** argv)
+{
+    if (argc != 2) {
+        fprintf(stderr, "%s\n", usage);
+        exit(1);
+    }
+    return argv[1];
+}
+
+//cli.h
+
+#ifndef CLI_H
+#define CLI_H
+
+const char* parse_args(int argc, char** argv);
+
+#endif
+
+//editor.c
+
+#include <stdlib.h>
+#include <stdio.h>
+#include "buffer.h"
+#include "cli.h"
+#include "editor.h"
+#include "input.h"
+#include "screen.h"
+
+EditorState editor_open(int argc, char** argv)
+{
+    EditorState state = {
+        .mode    = MODE_NORMAL,
+        .curBuf  = 0,
+        .cx      = 0,
+        .cy      = 0,
+        .rowoff  = 0,
+        .winrows = 0,
+        .wincols = 0,
+    };
+
+    // cli.c gives us the filename, buffer.c loads it
+    const char* filename = parse_args(argc, argv);
+    state.buflist[state.curBuf] = fileToBuf(filename);
+    if (!state.buflist[state.curBuf]) {
+        fprintf(stderr, "Out of memory\n");
+        exit(1);
+    }
+
+    // screen.c initialises ncurses and fills in winrows/wincols
+    screen_init(&state);
+
+    return state;
+}
+
+void editor_run(EditorState* state)
+{
+    editor_loop(state);
+}
+
+void editor_cleanup(EditorState* state, int statusc)
+{
+    for (int i = 0; i < MAX_BUFFERS; i++)
+        if (state->buflist[i])
+            freeBuf(state->buflist[i]);
+    screen_cleanup();
+    exit(statusc);
+}
+
+//editor.h
+
+#ifndef EDITOR_H
+#define EDITOR_H
+
+#include "buffer.h"
+
+#define MAX_BUFFERS 8
+
+typedef enum {
+    MODE_NORMAL,
+    MODE_INSERT
+} EditorMode;
+
+typedef struct {
+    EditorMode mode;
+    buffer* buflist[MAX_BUFFERS];
+    int curBuf;
+    int cx, cy;
+    int rowoff;
+    int winrows, wincols;
+} EditorState;
+
+EditorState editor_open(int argc, char** argv);
+void        editor_run(EditorState*);
+void        editor_cleanup(EditorState*, int);
+
+#endif
+
+//input.c
+
+#include <ncurses.h>
+#include <stdbool.h>
+#include "buffer.h"
+#include "editor.h"
+#include "input.h"
+#include "keys.h"
+#include "screen.h"
+
+void editor_loop(EditorState* state)
+{
+    int ch;
+
+    screen_draw(state->buflist[state->curBuf],
+                state->cx, state->cy, state->rowoff, state->winrows);
+
+    while (true) {
+
+        ch = getch();
+
+        buffer* buf    = state->buflist[state->curBuf];
+        row*    currow = &buf->rows[state->cy];
+
+        if (state->mode == MODE_NORMAL) {
+
+            switch (ch) {
+
+            case 'q':
+                return;
+
+            case 'w':
+                saveBuf(buf);
+                break;
+
+            case 'i':
+                state->mode = MODE_INSERT;
+                break;
+
+            case KEY_LEFT:
+            case 'h':
+                if (state->cx > 0) {
+                    state->cx--;
+                } else if (state->cy > 0) {
+                    state->cy--;
+                    state->cx = buf->rows[state->cy].length;
+                }
+                break;
+
+            case KEY_RIGHT:
+            case 'l':
+                if (state->cx < currow->length) {
+                    state->cx++;
+                } else if (state->cy < buf->numrows - 1) {
+                    state->cy++;
+                    state->cx = 0;
+                }
+                break;
+
+            case KEY_UP:
+            case 'k':
+                if (state->cy > 0)
+                    state->cy--;
+                break;
+
+            case KEY_DOWN:
+            case 'j':
+                if (state->cy < buf->numrows - 1)
+                    state->cy++;
+                break;
+
+            case KEY_BACKSPACE:
+            case 127:
+                if (state->cx > 0) {
+                    deleteChar(currow, state->cx - 1);
+                    state->cx--;
+                }
+                break;
+
+            case KEY_DC:
+                if (state->cx < currow->length)
+                    deleteChar(currow, state->cx);
+                break;
+            }
+
+        } else if (state->mode == MODE_INSERT) {
+
+            if (ch == ESC) {
+
+                state->mode = MODE_NORMAL;
+
+            } else if (ch == KEY_BACKSPACE || ch == 127) {
+
+                if (state->cx > 0) {
+                    deleteChar(currow, state->cx - 1);
+                    state->cx--;
+                }
+
+            } else if (ch == KEY_DC) {
+
+                if (state->cx < currow->length)
+                    deleteChar(currow, state->cx);
+
+            } else if (ch == KEY_ENTER || ch == '\n' || ch == '\r') {
+
+                insertNewline(buf, state->cy, state->cx);
+                state->cy++;
+                state->cx = 0;
+
+            } else if (ch >= CHAR_START && ch <= CHAR_END) {
+
+                insertChar(currow, state->cx, ch);
+                state->cx++;
+            }
+        }
+
+        // Fix cursor bounds after movement
+        if (state->cy >= buf->numrows)
+            state->cy = buf->numrows - 1;
+
+        if (state->cy < 0)
+            state->cy = 0;
+
+        if (state->cx > buf->rows[state->cy].length)
+            state->cx = buf->rows[state->cy].length;
+
+        if (state->cx < 0)
+            state->cx = 0;
+
+        // Scroll handling
+        if (state->cy < state->rowoff)
+            state->rowoff = state->cy;
+
+        if (state->cy >= state->rowoff + state->winrows)
+            state->rowoff = state->cy - state->winrows + 1;
+
+        screen_draw(buf, state->cx, state->cy, state->rowoff, state->winrows);
+    }
+}
+
+//input.h
+
+#ifndef INPUT_H
+#define INPUT_H
+
+#include "editor.h"
+
+void editor_loop(EditorState*);
+
+#endif
+
+//keys.h
+
+#ifndef KEYS_H
+#define KEYS_H
+
+#define CTRL_A 1
+#define CTRL_B 2
+#define CTRL_C 3
+#define CTRL_D 4
+#define CTRL_E 5
+#define CTRL_F 6
+#define CTRL_G 7
+#define CTRL_H 8
+#define CTRL_I 9
+#define CTRL_J 10
+#define CTRL_K 11
+#define CTRL_L 12
+#define CTRL_M 13
+#define CTRL_N 14
+#define CTRL_O 15
+#define CTRL_P 16
+#define CTRL_Q 17
+#define CTRL_R 18
+#define CTRL_S 19
+#define CTRL_T 20
+#define CTRL_U 21
+#define CTRL_V 22
+#define CTRL_W 23
+#define CTRL_X 24
+#define CTRL_Y 25
+#define CTRL_Z 26
+
+#define CHAR_START 32
+#define CHAR_END   126
+#define ESC        27
+#define DEL        127
+#define CR         '\n'
+
+#endif
+
+
+//main.c
+
+#include "editor.h"
+
+int main(int argc, char** argv)
+{
+    EditorState state = editor_open(argc, argv);
+    editor_run(&state);
+    editor_cleanup(&state, 0);
+    return 0;
+}
+
+//screen.c
+
+#include <ncurses.h>
+#include "buffer.h"
+#include "editor.h"
+#include "screen.h"
+
+void screen_init(EditorState* state)
+{
+    initscr();
+    keypad(stdscr, TRUE);
+    raw();
+    noecho();
+    getmaxyx(stdscr, state->winrows, state->wincols);
+}
+
+void screen_draw(buffer* buf, int cx, int cy, int rowoff, int winrows)
+{
+    clear();
+    for (int i = 0; i < winrows && i + rowoff < buf->numrows; i++)
+        mvprintw(i, 0, "%s", buf->rows[i + rowoff].line);
+    if (cy >= rowoff && cy < rowoff + winrows)
+        move(cy - rowoff, cx);
+    refresh();
+}
+
+void screen_cleanup(void)
+{
+    endwin();
+}
+
+//screen.h
+
+#ifndef SCREEN_H
+#define SCREEN_H
+
+#include "buffer.h"
+#include "editor.h"
+
+void screen_init(EditorState*);
+void screen_draw(buffer*, int cx, int cy, int rowoff, int winrows);
+void screen_cleanup(void);
+
+#endif
+
+//win_getline.c
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <stddef.h>
+
+ptrdiff_t win_getline(char **lineptr, size_t *n, FILE *stream) // -1 on EOF or error
+{
+    if (!lineptr || !n || !stream)
+        return -1;
+
+    if (*lineptr == NULL || *n == 0) {
+        *n = 128;
+        *lineptr = (char *)malloc(*n);
+        if (!*lineptr)
+            return -1;
+    }
+
+    size_t pos = 0;
+    int c;
+
+    while ((c = fgetc(stream)) != EOF) {
+
+        if (pos + 1 >= *n) {
+            size_t new_size = (*n) * 2;
+            char *new_ptr = (char *)realloc(*lineptr, new_size);
+            if (!new_ptr)
+                return -1;
+
+            *lineptr = new_ptr;
+            *n = new_size;
+        }
+
+        (*lineptr)[pos++] = (char)c;
+
+        if (c == '\n')
+            break;
+    }
+
+    if (pos == 0 && c == EOF)
+        return -1;
+
+    (*lineptr)[pos] = '\0';
+    return (ptrdiff_t)pos;
+}
+
+
+//win_getline.h
+
+#ifndef WIN_GETLINE_H
+#define WIN_GETLINE_H
+
+#include <stdio.h>
+#include <stddef.h>
+
+ptrdiff_t win_getline(char**, size_t*, FILE*); // -1 on EOF or error
+
+#endif
+
+
