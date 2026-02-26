@@ -1,6 +1,8 @@
 #ifndef BUFFER_H
 #define BUFFER_H
 
+#include "fears.h"
+
 typedef struct {
     int length;
     char* line;
@@ -12,9 +14,7 @@ typedef struct {
     row *rows;
 } buffer;
 
-extern int cx, cy;
-extern int rowoff;
-extern int winrows, wincols;
+extern EditorState state;
 extern char* current_filename;
 
 buffer* fileToBuf(const char*);

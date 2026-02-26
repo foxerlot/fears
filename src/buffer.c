@@ -53,14 +53,14 @@ buffer* fileToBuf(const char* filename)
 void draw(buffer* buf)
 {
     clear();
-    for (int i = 0; i < winrows && i + rowoff < buf->numrows; i++)
-        mvprintw(i, 0, "%s", buf->rows[i + rowoff].line);
-    if (cy >= buf->numrows) cy = buf->numrows - 1;
-    if (cy < 0) cy = 0;
-    if (cx > buf->rows[cy].length) cx = buf->rows[cy].length;
-    if (cx < 0) cx = 0;
-    if (cy >= rowoff && cy < rowoff + winrows)
-        move(cy - rowoff, cx);
+    for (int i = 0; i < state.winrows && i + state.rowoff < buf->numrows; i++)
+        mvprintw(i, 0, "%s", buf->rows[i + state.rowoff].line);
+    if (state.cy >= buf->numrows) state.cy = buf->numrows - 1;
+    if (state.cy < 0) state.cy = 0;
+    if (state.cx > buf->rows[state.cy].length) state.cx = buf->rows[state.cy].length;
+    if (state.cx < 0) state.cx = 0;
+    if (state.cy >= state.rowoff && state.cy < state.rowoff + state.winrows)
+        move(state.cy - state.rowoff, state.cx);
     refresh();
 }
 

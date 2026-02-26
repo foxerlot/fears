@@ -3,25 +3,22 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include "fears.h"
 #include "buffer.h"
 #include "keys.h"
 
-#define GLOB(x) ((void)x)
+EditorState state = {
+    .cx = 0,
+    .cy = 0,
+    .rowoff = 0,
+    .winrows = 0,
+    .wincols = 0,
+    .curBuf = 0,
+    .mode = MODE_NORMAL
+};
 
-typedef enum {
-    MODE_NORMAL,
-    MODE_INSERT
-} EditorMode;
-
-EditorMode mode = MODE_NORMAL;
-buffer* buflist[8];
-int curBuf = 0;
-
-int cx = 0, cy = 0;    // cursor y, cursor x
-int rowoff = 0;        // the index of the first line in your buffer that is currently displayed at the top of the screen
-int winrows, wincols;  // window rows, window columns
-
-char* usage = "Usage: fears [options] [input]";
+buffer* buflist[BUFS];
+char usage[] = "Usage: fears [options] [filename]";
 
 void parse_args(int, char**);
 void editor_init(void);
@@ -39,12 +36,14 @@ int main(int argc, char** argv)
 
 void parse_args(int argc, char** argv)
 {
-    if (argc != 2) {
+    if (argc < 2) {
         fprintf(stderr, "%s\n", usage);
         exit(1);
     }
-    buflist[curBuf] = fileToBuf(argv[1]);
-    if (!buflist[curBuf]) {
+    for (int i = 1; i < argc; i++) {
+        buflist[i - 1] = fileToBuf(argv[i]);
+    }
+    if (!buflist[state.curBuf]) {
         fprintf(stderr, "Failed to open file: %s\n", argv[1]);
         exit(1);
     }
@@ -56,7 +55,8 @@ void editor_init(void)
     keypad(stdscr, TRUE);
     raw();
     noecho();
-    getmaxyx(stdscr, winrows, wincols);
+    getmaxyx(stdscr, state.winrows, state.wincols);
+    draw(buflist[state.curBuf]);
 }
 
 void editor_loop(void) // eventually put this in an input.c
@@ -64,55 +64,61 @@ void editor_loop(void) // eventually put this in an input.c
     int ch;
     while (true) {
         ch = getch();
-        if (mode == MODE_NORMAL){
+        if (state.mode == MODE_NORMAL){
             switch (ch) { // qwertyuiopasdfghjklzxcvbnm
             case 'q':
                 return;
                 break;
             case 'w':
-                saveBuf(buflist[curBuf]);
+                saveBuf(buflist[state.curBuf]);
                 break;
             case 'i':
-                mode = MODE_INSERT;
+                state.mode = MODE_INSERT;
                 break;
             case 'h':
-                if (cx > 0) cx--;
+                if (state.cx > 0) state.cx--;
                 break;
             case 'j':
-                if (cy < buflist[curBuf]->numrows - 1) cy++;
-                if (cy >= rowoff + winrows) rowoff = cy - winrows + 1;
+                if (state.cy < buflist[state.curBuf]->numrows - 1) state.cy++;
+                if (state.cy >= state.rowoff + state.winrows) state.rowoff = state.cy - state.winrows + 1;
                 break;
             case 'k':
-                if (cy > 0) cy--;
-                if (cy < rowoff) rowoff = cy;
+                if (state.cy > 0) state.cy--;
+                if (state.cy < state.rowoff) state.rowoff = state.cy;
                 break;
             case 'l':
-                if (cx < buflist[curBuf]->rows[cy].length) cx++;
+                if (state.cx < buflist[state.curBuf]->rows[state.cy].length) state.cx++;
+                break;
+            case 'b':
+                if (buflist[state.curBuf+1] != NULL)
+                    state.curBuf++;
+                else
+                    state.curBuf = 0;
                 break;
             }
-        } else if (mode == MODE_INSERT) {
+        } else if (state.mode == MODE_INSERT) {
             if (ch == ESC) {
-                mode = MODE_NORMAL;
+                state.mode = MODE_NORMAL;
             } else if (ch >= CHAR_START && ch <= CHAR_END) {
-                insertChar(&buflist[curBuf]->rows[cy], cx, ch);
-                cx++;
+                insertChar(&buflist[state.curBuf]->rows[state.cy], state.cx, ch);
+                state.cx++;
             } else if (ch == KEY_BACKSPACE || ch == DEL) {
-                deleteChar(&buflist[curBuf]->rows[cy], cx-1);
-                cx--;
+                deleteChar(&buflist[state.curBuf]->rows[state.cy], state.cx-1);
+                state.cx--;
             } else if (ch == KEY_ENTER || ch == CR) {
-                insertNewline(buflist[curBuf], cy, cx);
-                cy++;
-                cx = 0;
+                insertNewline(buflist[state.curBuf], state.cy, state.cx);
+                state.cy++;
+                state.cx = 0;
             }
         }
-        draw(buflist[curBuf]);
+        draw(buflist[state.curBuf]);
     }
 }
 
 void editor_cleanup(int statusc) // statusc = status code
 {
     endwin();
-    for (int i = 0; i < 8; i++) { // 8 is the size of buflist, prob make this a macro...
+    for (int i = 0; buflist[i] != NULL; i++) {
         for (int j = 0; j < buflist[i]->numrows; j++)
             free(buflist[i]->rows[j].line);
         free(buflist[i]->rows);

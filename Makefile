@@ -1,4 +1,4 @@
-CC          = clang
+CC          = gcc
 WINCC       = x86_64-w64-mingw32-gcc
 
 CFLAGS      = -Wall -Wextra -Werror -Wpedantic -std=c99
