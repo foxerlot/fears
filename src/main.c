@@ -53,14 +53,13 @@ void parse_args(int argc, char** argv)
         filenames[i - 1] = argv[i];
     }
 
-    for (int i = 0; filenames[i] != NULL; i++) {
-        if (access(argv[i], F_OK) == 0) {
+    bufcount = argc - 1;
+    for (int i = 0; i < bufcount; i++) {
+        if (access(argv[i + 1], F_OK) == 0)
             buflist[i] = fileToBuf(filenames[i]);
-        }
-        else {
+        else
             buflist[i] = newBuffer();
-        }
-        if (!buflist[i]) DIE("Error: could not open file %s\n", argv[i]);
+        if (!buflist[i]) DIE("Error: could not open file %s\n", filenames[i]);
     }
 }
 
@@ -133,13 +132,11 @@ void editor_loop(void) // eventually put this in an input.c
 void editor_cleanup(int statusc) // statusc = status code
 {
     endwin();
-    for (int i = 0; buflist[i] != NULL; i++) {
+    for (int i = 0; i < bufcount; i++) {
         for (int j = 0; j < buflist[i]->numrows; j++)
             free(buflist[i]->rows[j].line);
         free(buflist[i]->rows);
         free(buflist[i]);
     }
-    for (int i = 0; filenames[i] != NULL; i++)
-        free(filenames[i]);
     exit(statusc);
 }

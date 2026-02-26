@@ -8,7 +8,7 @@
         exit(1);                             \
     } while (0)
 
-#define BUFS 2
+#define BUFS 48
 
 typedef enum {
     MODE_NORMAL,

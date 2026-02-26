@@ -51,8 +51,7 @@ buffer* fileToBuf(const char* filename)
 }
 
 buffer* newBuffer(void) {
-    fileNameCounter++;
-    buffer* buf = malloc(sizeof(buffer));
+    buffer* buf = malloc(sizeof(buffer*));
     buf->capacity = 1;
     buf->rows = malloc(sizeof(row));
     buf->rows[0].length = 0;
