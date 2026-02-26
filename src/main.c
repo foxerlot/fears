@@ -8,11 +8,11 @@
 #include "buffer.h"
 
 #ifdef WIN32
-#include <io.h>
-#define F_OK 0
-#define access _access
+#   include <io.h>
+#   define F_OK 0
+#   define access _access
 #else
-#include <unistd.h>
+#   include <unistd.h>
 #endif
 
 EditorState state = {
