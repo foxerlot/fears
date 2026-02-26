@@ -1,11 +1,19 @@
-#include <ncurses.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <ncurses.h>
 #include "fears.h"
-#include "buffer.h"
 #include "keys.h"
+#include "buffer.h"
+
+#ifdef WIN32
+#include <io.h>
+#define F_OK 0
+#define access _access
+#else
+#include <unistd.h>
+#endif
 
 EditorState state = {
     .cx = 0,
@@ -19,6 +27,8 @@ EditorState state = {
 
 buffer* buflist[BUFS];
 char usage[] = "Usage: fears [options] [filename]";
+int bufcount = 0;
+char* filenames[BUFS];
 
 void parse_args(int, char**);
 void editor_init(void);
@@ -36,16 +46,21 @@ int main(int argc, char** argv)
 
 void parse_args(int argc, char** argv)
 {
-    if (argc < 2) {
-        fprintf(stderr, "%s\n", usage);
-        exit(1);
-    }
+    if (argc < 2) DIE("%s", usage);
+
     for (int i = 1; i < argc; i++) {
-        buflist[i - 1] = fileToBuf(argv[i]);
+        // if (isfile(argv[0])) // TODO
+        filenames[i - 1] = argv[i];
     }
-    if (!buflist[state.curBuf]) {
-        fprintf(stderr, "Failed to open file: %s\n", argv[1]);
-        exit(1);
+
+    for (int i = 0; filenames[i] != NULL; i++) {
+        if (access(argv[i], F_OK) == 0) {
+            buflist[i] = fileToBuf(filenames[i]);
+        }
+        else {
+            buflist[i] = newBuffer();
+        }
+        if (!buflist[i]) DIE("Error: could not open file %s\n", argv[i]);
     }
 }
 
@@ -124,6 +139,7 @@ void editor_cleanup(int statusc) // statusc = status code
         free(buflist[i]->rows);
         free(buflist[i]);
     }
-    free(current_filename);
+    for (int i = 0; filenames[i] != NULL; i++)
+        free(filenames[i]);
     exit(statusc);
 }

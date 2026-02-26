@@ -5,11 +5,11 @@
 #include "buffer.h"
 #include "win_getline.h"
 
-char* current_filename = NULL;
+static int fileNameCounter = 0;
 
 buffer* fileToBuf(const char* filename)
 {
-    current_filename = strdup(filename);
+    filenames[fileNameCounter++] = strdup(filename);
     FILE* f = fopen(filename, "r");
     if (!f) return NULL;
 
@@ -47,6 +47,18 @@ buffer* fileToBuf(const char* filename)
         buf->rows[0].line[0] = '\0';
         buf->numrows = 1;
     }
+    return buf;
+}
+
+buffer* newBuffer(void) {
+    fileNameCounter++;
+    buffer* buf = malloc(sizeof(buffer));
+    buf->capacity = 1;
+    buf->rows = malloc(sizeof(row));
+    buf->rows[0].length = 0;
+    buf->rows[0].line = malloc(1);
+    buf->rows[0].line[0] = '\0';
+    buf->numrows = 1;
     return buf;
 }
 
@@ -130,8 +142,8 @@ void insertNewline(buffer* buf, int row_index, int at)
 
 void saveBuf(buffer* buf)
 {
-    if (!buf || !current_filename) return;
-    FILE* f = fopen(current_filename, "w");
+    if (!buf || !filenames[state.curBuf]) return;
+    FILE* f = fopen(filenames[state.curBuf], "w");
     if (!f) return;
 
     for (int i = 0; i < buf->numrows; i++) {

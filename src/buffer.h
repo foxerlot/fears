@@ -15,9 +15,9 @@ typedef struct {
 } buffer;
 
 extern EditorState state;
-extern char* current_filename;
 
 buffer* fileToBuf(const char*);
+buffer* newBuffer(void);
 void draw(buffer*);
 void insertChar(row*, int, char);
 void deleteChar(row*, int);

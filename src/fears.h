@@ -2,6 +2,12 @@
 #define FEARS_H
 
 #define GLOB(x) ((void)x)
+#define DIE(msg, ...)                        \
+    do {                                     \
+        fprintf(stderr, msg, __VA_ARGS__); \
+        exit(1);                             \
+    } while (0)
+
 #define BUFS 2
 
 typedef enum {
@@ -18,5 +24,7 @@ typedef struct {
     int curBuf;      // current buffer number
     EditorMode mode; // editor mode
 } EditorState;
+
+extern char* filenames[];
 
 #endif // FEARS_H
