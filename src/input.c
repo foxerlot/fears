@@ -4,13 +4,14 @@
 #include "editor.h"
 #include "input.h"
 #include "keys.h"
+#include "screen.h"
 
 void editor_loop(EditorState* state)
 {
     int ch;
 
-    draw(state->buflist[state->curBuf],
-         state->cx, state->cy, state->rowoff, state->winrows);
+    screen_draw(state->buflist[state->curBuf],
+                state->cx, state->cy, state->rowoff, state->winrows);
 
     while (true) {
 
@@ -131,6 +132,6 @@ void editor_loop(EditorState* state)
         if (state->cy >= state->rowoff + state->winrows)
             state->rowoff = state->cy - state->winrows + 1;
 
-        draw(buf, state->cx, state->cy, state->rowoff, state->winrows);
+        screen_draw(buf, state->cx, state->cy, state->rowoff, state->winrows);
     }
 }

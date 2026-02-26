@@ -7,6 +7,7 @@
 #include "editor.h"
 #include "input.h"
 #include "keys.h"
+#include "screen.h"
 
 static char* usage = "Usage: fears [options] [input]";
 
@@ -23,7 +24,7 @@ int main(int argc, char** argv)
     };
 
     parse_args(&state, argc, argv);
-    editor_init(&state);
+    screen_init(&state);
     editor_loop(&state);
     editor_cleanup(&state, 0);
     return 0;
@@ -51,15 +52,6 @@ void parse_args(EditorState* state, int argc, char** argv)
         state->buflist[state->curBuf]->rows[0].line = malloc(1);
         state->buflist[state->curBuf]->rows[0].line[0] = '\0';
     }
-}
-
-void editor_init(EditorState* state)
-{
-    initscr();
-    keypad(stdscr, TRUE);
-    raw();
-    noecho();
-    getmaxyx(stdscr, state->winrows, state->wincols);
 }
 
 void editor_cleanup(EditorState* state, int statusc)

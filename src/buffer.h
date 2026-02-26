@@ -14,7 +14,6 @@ typedef struct {
 } buffer;
 
 buffer* fileToBuf(const char*);
-void draw(buffer*, int cx, int cy, int rowoff, int winrows);
 void insertChar(row*, int, char);
 void deleteChar(row*, int);
 void insertNewline(buffer*, int, int);

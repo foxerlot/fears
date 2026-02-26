@@ -20,7 +20,6 @@ typedef struct {
 } EditorState;
 
 void parse_args(EditorState*, int, char**);
-void editor_init(EditorState*);
 void editor_cleanup(EditorState*, int);
 
 #endif
