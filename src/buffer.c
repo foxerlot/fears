@@ -12,8 +12,7 @@ buffer* fileToBuf(const char* filename)
     buf->numrows = 0;
     buf->capacity = 0;
     buf->rows = NULL;
-    buf->filename = strdup(filename);  // owned by the buffer, set before fopen
-                                       // so filename is preserved even if file doesn't exist
+    buf->filename = strdup(filename);
 
     FILE* f = fopen(filename, "r");
     if (!f) {
@@ -55,15 +54,11 @@ buffer* fileToBuf(const char* filename)
     return buf;
 }
 
-void draw(buffer* buf)
+void draw(buffer* buf, int cx, int cy, int rowoff, int winrows)
 {
     clear();
     for (int i = 0; i < winrows && i + rowoff < buf->numrows; i++)
         mvprintw(i, 0, "%s", buf->rows[i + rowoff].line);
-    if (cy >= buf->numrows) cy = buf->numrows - 1;
-    if (cy < 0) cy = 0;
-    if (cx > buf->rows[cy].length) cx = buf->rows[cy].length;
-    if (cx < 0) cx = 0;
     if (cy >= rowoff && cy < rowoff + winrows)
         move(cy - rowoff, cx);
     refresh();

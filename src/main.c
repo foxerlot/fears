@@ -4,86 +4,78 @@
 #include <string.h>
 #include <sys/types.h>
 #include "buffer.h"
+#include "editor.h"
 #include "keys.h"
 
-#define GLOB(x) ((void)x)
-
-typedef enum {
-    MODE_NORMAL,
-    MODE_INSERT
-} EditorMode;
-
-EditorMode mode = MODE_NORMAL;
-buffer* buflist[8];
-int curBuf = 0;
-
-int cx = 0, cy = 0;
-int rowoff = 0;
-int winrows, wincols;
-
-char* usage = "Usage: fears [options] [input]";
-
-void parse_args(int, char**);
-void editor_init(void);
-void editor_loop(void);
-void editor_cleanup(int);
+static char* usage = "Usage: fears [options] [input]";
 
 int main(int argc, char** argv)
 {
-    parse_args(argc, argv);
-    editor_init();
-    editor_loop();
-    editor_cleanup(0);
+    EditorState state = {
+        .mode   = MODE_NORMAL,
+        .curBuf = 0,
+        .cx     = 0,
+        .cy     = 0,
+        .rowoff = 0,
+        .winrows = 0,
+        .wincols = 0,
+    };
+
+    parse_args(&state, argc, argv);
+    editor_init(&state);
+    editor_loop(&state);
+    editor_cleanup(&state, 0);
     return 0;
 }
 
-void parse_args(int argc, char** argv)
+void parse_args(EditorState* state, int argc, char** argv)
 {
     if (argc != 2) {
         fprintf(stderr, "%s\n", usage);
         exit(1);
     }
-    buflist[curBuf] = fileToBuf(argv[1]);
-    if (!buflist[curBuf]) {
+    state->buflist[state->curBuf] = fileToBuf(argv[1]);
+    if (!state->buflist[state->curBuf]) {
         // File doesn't exist — create a new empty buffer with that filename
-        buflist[curBuf] = malloc(sizeof(buffer));
-        if (!buflist[curBuf]) {
+        state->buflist[state->curBuf] = malloc(sizeof(buffer));
+        if (!state->buflist[state->curBuf]) {
             fprintf(stderr, "Out of memory\n");
             exit(1);
         }
-        buflist[curBuf]->filename = strdup(argv[1]);  // was: current_filename = strdup(argv[1])
-        buflist[curBuf]->numrows = 1;
-        buflist[curBuf]->capacity = 1;
-        buflist[curBuf]->rows = malloc(sizeof(row));
-        buflist[curBuf]->rows[0].length = 0;
-        buflist[curBuf]->rows[0].line = malloc(1);
-        buflist[curBuf]->rows[0].line[0] = '\0';
+        state->buflist[state->curBuf]->filename = strdup(argv[1]);
+        state->buflist[state->curBuf]->numrows = 1;
+        state->buflist[state->curBuf]->capacity = 1;
+        state->buflist[state->curBuf]->rows = malloc(sizeof(row));
+        state->buflist[state->curBuf]->rows[0].length = 0;
+        state->buflist[state->curBuf]->rows[0].line = malloc(1);
+        state->buflist[state->curBuf]->rows[0].line[0] = '\0';
     }
 }
 
-void editor_init(void)
+void editor_init(EditorState* state)
 {
     initscr();
     keypad(stdscr, TRUE);
     raw();
     noecho();
-    getmaxyx(stdscr, winrows, wincols);
+    getmaxyx(stdscr, state->winrows, state->wincols);
 }
 
-void editor_loop(void)
+void editor_loop(EditorState* state)
 {
     int ch;
 
-    draw(buflist[curBuf]);
+    draw(state->buflist[state->curBuf],
+         state->cx, state->cy, state->rowoff, state->winrows);
 
     while (true) {
 
         ch = getch();
 
-        buffer* buf = buflist[curBuf];
-        row* currow = &buf->rows[cy];
+        buffer* buf    = state->buflist[state->curBuf];
+        row*    currow = &buf->rows[state->cy];
 
-        if (mode == MODE_NORMAL) {
+        if (state->mode == MODE_NORMAL) {
 
             switch (ch) {
 
@@ -95,122 +87,120 @@ void editor_loop(void)
                 break;
 
             case 'i':
-                mode = MODE_INSERT;
+                state->mode = MODE_INSERT;
                 break;
 
             case KEY_LEFT:
             case 'h':
-                if (cx > 0) {
-                    cx--;
-                } else if (cy > 0) {
-                    cy--;
-                    cx = buf->rows[cy].length;
+                if (state->cx > 0) {
+                    state->cx--;
+                } else if (state->cy > 0) {
+                    state->cy--;
+                    state->cx = buf->rows[state->cy].length;
                 }
                 break;
 
             case KEY_RIGHT:
             case 'l':
-                if (cx < currow->length) {
-                    cx++;
-                } else if (cy < buf->numrows - 1) {
-                    cy++;
-                    cx = 0;
+                if (state->cx < currow->length) {
+                    state->cx++;
+                } else if (state->cy < buf->numrows - 1) {
+                    state->cy++;
+                    state->cx = 0;
                 }
                 break;
 
             case KEY_UP:
             case 'k':
-                if (cy > 0)
-                    cy--;
+                if (state->cy > 0)
+                    state->cy--;
                 break;
 
             case KEY_DOWN:
             case 'j':
-                if (cy < buf->numrows - 1)
-                    cy++;
+                if (state->cy < buf->numrows - 1)
+                    state->cy++;
                 break;
 
             case KEY_BACKSPACE:
             case 127:
-                if (cx > 0) {
-                    deleteChar(currow, cx - 1);
-                    cx--;
+                if (state->cx > 0) {
+                    deleteChar(currow, state->cx - 1);
+                    state->cx--;
                 }
                 break;
 
             case KEY_DC:
-                if (cx < currow->length) {
-                    deleteChar(currow, cx);
-                }
+                if (state->cx < currow->length)
+                    deleteChar(currow, state->cx);
                 break;
             }
 
-        } else if (mode == MODE_INSERT) {
+        } else if (state->mode == MODE_INSERT) {
 
             if (ch == ESC) {
 
-                mode = MODE_NORMAL;
+                state->mode = MODE_NORMAL;
 
             } else if (ch == KEY_BACKSPACE || ch == 127) {
 
-                if (cx > 0) {
-                    deleteChar(currow, cx - 1);
-                    cx--;
+                if (state->cx > 0) {
+                    deleteChar(currow, state->cx - 1);
+                    state->cx--;
                 }
 
             } else if (ch == KEY_DC) {
 
-                if (cx < currow->length) {
-                    deleteChar(currow, cx);
-                }
+                if (state->cx < currow->length)
+                    deleteChar(currow, state->cx);
 
             } else if (ch == KEY_ENTER || ch == '\n' || ch == '\r') {
 
-                insertNewline(buf, cy, cx);
-                cy++;
-                cx = 0;
+                insertNewline(buf, state->cy, state->cx);
+                state->cy++;
+                state->cx = 0;
 
             } else if (ch >= CHAR_START && ch <= CHAR_END) {
 
-                insertChar(currow, cx, ch);
-                cx++;
+                insertChar(currow, state->cx, ch);
+                state->cx++;
             }
         }
 
         // Fix cursor bounds after movement
-        if (cy >= buf->numrows)
-            cy = buf->numrows - 1;
+        if (state->cy >= buf->numrows)
+            state->cy = buf->numrows - 1;
 
-        if (cy < 0)
-            cy = 0;
+        if (state->cy < 0)
+            state->cy = 0;
 
-        if (cx > buf->rows[cy].length)
-            cx = buf->rows[cy].length;
+        if (state->cx > buf->rows[state->cy].length)
+            state->cx = buf->rows[state->cy].length;
 
-        if (cx < 0)
-            cx = 0;
+        if (state->cx < 0)
+            state->cx = 0;
 
         // Scroll handling
-        if (cy < rowoff)
-            rowoff = cy;
+        if (state->cy < state->rowoff)
+            state->rowoff = state->cy;
 
-        if (cy >= rowoff + winrows)
-            rowoff = cy - winrows + 1;
+        if (state->cy >= state->rowoff + state->winrows)
+            state->rowoff = state->cy - state->winrows + 1;
 
-        draw(buf);
+        draw(buf, state->cx, state->cy, state->rowoff, state->winrows);
     }
 }
 
-void editor_cleanup(int statusc)
+void editor_cleanup(EditorState* state, int statusc)
 {
     endwin();
-    for (int i = 0; i < 8; i++) {
-        if (!buflist[i]) continue;
-        for (int j = 0; j < buflist[i]->numrows; j++)
-            free(buflist[i]->rows[j].line);
-        free(buflist[i]->rows);
-        free(buflist[i]->filename);   // was: free(current_filename)
-        free(buflist[i]);
+    for (int i = 0; i < MAX_BUFFERS; i++) {
+        if (!state->buflist[i]) continue;
+        for (int j = 0; j < state->buflist[i]->numrows; j++)
+            free(state->buflist[i]->rows[j].line);
+        free(state->buflist[i]->rows);
+        free(state->buflist[i]->filename);
+        free(state->buflist[i]);
     }
     exit(statusc);
 }
