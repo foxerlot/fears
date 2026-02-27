@@ -1,10 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ncurses.h>
 #include <sys/types.h>
 #include "buffer.h"
-#include "tui.h"
 #include "fears.h"
+#include "keys.h"
 
 #ifdef WIN32
 #   include <io.h>
@@ -65,17 +66,17 @@ void parseArgs(int argc, char** argv)
 
 void editorInit(void)
 {
-    enterRawMode();
-    enableAltBuffer();
-    clear();
-    getmaxyx(&state.winrows, &state.wincols);
+    initscr();
+    raw();
+    keypad(stdscr, TRUE);
+    noecho();
     draw(buflist[state.curbuf]);
 }
 
 void editorLoop(void) {
     int ch;
     while (1) {
-        ch = readKey();
+        ch = getch();
 
         if (state.mode == MODE_NORMAL) {
             switch (ch) {
@@ -123,7 +124,7 @@ void editorLoop(void) {
             } else if (ch >= CHAR_START && ch <= CHAR_END) {
                 insertChar(&buflist[state.curbuf]->rows[state.cy], state.cx, ch);
                 state.cx++;
-            } else if (ch == BACKSPACE || ch == DEL) {
+            } else if (ch == BS || ch == DEL) {
                 deleteChar(buflist[state.curbuf], state.cy, state.cx-1);
                 state.cx--;
             } else if (ch == CR || ch == LF) {
@@ -138,7 +139,7 @@ void editorLoop(void) {
 
 void editorCleanup(int statusc) // statusc = status code
 {
+    endwin();
     freeBuf(buflist[state.curbuf]);
-    disableAltBuffer();
     exit(statusc);
 }

@@ -1,8 +1,5 @@
-#ifndef TUI_H
-#define TUI_H
-
-#include <stdio.h>
-#include "buffer.h"
+#ifndef KEYS_H
+#define KEYS_H
 
 #define CTRL_A 1
 #define CTRL_B 2
@@ -36,7 +33,7 @@
 #define TAB 9
 #define CR 13
 #define LF 10
-#define BACKSPACE 8
+#define BS 8
 #define CHAR_START 32
 #define CHAR_END 126
 #define ARROW_UP 1000
@@ -49,20 +46,5 @@
 #define PAGE_DOWN 1007
 #define INSERT_KEY 1008
 #define DELETE_KEY 1009
-
-#define TUI_BUF_SIZE 8192
-
-void enterRawMode(void);
-void exitRawMode(void);
-void enableAltBuffer(void);
-void disableAltBuffer(void);
-void clear(void);
-void move(int, int);
-void printw(const char*, ...);
-void mvprintw(int, int, const char*, ...);
-void refresh(void);
-void getmaxyx(int*, int*);
-int readKey(void);
-void draw(buffer*);
 
 #endif
