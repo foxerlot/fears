@@ -1,154 +1,241 @@
-#include <ncurses.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "buffer.h"
-#include "win_getline.h"
 
-static int fileNameCounter = 0;
-
-buffer* fileToBuf(const char* filename)
+buffer* newBuf(void)
 {
-    filenames[fileNameCounter++] = strdup(filename);
-    FILE* f = fopen(filename, "r");
-    if (!f) return NULL;
+	buffer* buf = malloc(sizeof(buffer));
 
-    char* line = NULL;
-    size_t len = 0;
-    int nread;
-    buffer* buf = malloc(sizeof(buffer));
-    if (!buf) return NULL;
-    buf->numrows = 0;
-    buf->capacity = 0;
-    buf->rows = NULL;
+	buf->capacity = 1;
+	buf->rows = malloc(sizeof(row));
+	buf->rows[0].length = 0;
+	buf->rows[0].line = malloc(1);
+	buf->rows[0].line[0] = '\0';
+	buf->numrows = 1;
 
-    while ((nread = win_getline(&line, &len, f)) != -1) {
-        if (nread > 0 && line[nread - 1] == '\n') {
-            line[nread - 1] = '\0';
-            nread--;
-        }
-        if (buf->numrows == buf->capacity) {
-            buf->capacity = buf->capacity ? buf->capacity * 2 : 16; // 16 is arbitrary
-            buf->rows = realloc(buf->rows, buf->capacity * sizeof(row));
-        }
-        buf->rows[buf->numrows].line = malloc(nread + 1);
-        strcpy(buf->rows[buf->numrows].line, line);
-        buf->rows[buf->numrows].length = nread;
-        buf->numrows++;
-    }
-
-    free(line);
-    fclose(f);
-    if (buf->numrows == 0) {
-        buf->capacity = 1;
-        buf->rows = malloc(sizeof(row));
-        buf->rows[0].length = 0;
-        buf->rows[0].line = malloc(1);
-        buf->rows[0].line[0] = '\0';
-        buf->numrows = 1;
-    }
-    return buf;
+	return buf;
 }
 
-buffer* newBuffer(void) {
-    buffer* buf = malloc(sizeof(buffer*));
-    buf->capacity = 1;
-    buf->rows = malloc(sizeof(row));
-    buf->rows[0].length = 0;
-    buf->rows[0].line = malloc(1);
-    buf->rows[0].line[0] = '\0';
-    buf->numrows = 1;
-    return buf;
+buffer* fileToBuf(FILE* f)
+{
+	if (!f) return NULL;
+	buffer* buf = malloc(sizeof(buffer));
+	if (!buf) return NULL;
+
+	buf->rows = NULL;
+	buf->numrows = 0;
+	buf->capacity = 0;
+
+	char* line = NULL;
+	size_t len = 0;
+	long int nread;
+
+	while ((nread = fileGetline(&line, &len, f)) != -1) {
+		if (nread > 0 && line[nread - 1] == '\n') {
+			line[nread - 1] = '\0';
+			nread--;
+		}
+
+		if (buf->numrows == buf->capacity) {
+			int newCap = buf->capacity ? buf->capacity * 2 : 16;
+			row* tmp = realloc(buf->rows, newCap * sizeof(row));
+			if (!tmp) {
+				free(line);
+				free(buf);
+				return NULL;
+			}
+			buf->rows = tmp;
+			buf->capacity = newCap;
+		}
+
+		buf->rows[buf->numrows].line = malloc(nread + 1);
+		if (!buf->rows[buf->numrows].line) {
+			free(line);
+			free(buf);
+			return NULL;
+		}
+
+		memcpy(buf->rows[buf->numrows].line, line, nread + 1);
+		buf->rows[buf->numrows].length = nread;
+		buf->numrows++;
+	}
+
+	free(line);
+	if (buf->numrows == 0) {
+		buf->capacity = 1;
+		buf->rows = malloc(sizeof(row));
+		buf->rows[0].length = 0;
+		buf->rows[0].line = malloc(1);
+		buf->rows[0].line[0] = '\0';
+		buf->numrows = 1;
+	}
+	return buf;
 }
 
-void draw(buffer* buf)
+FILE* bufToFile(buffer* buf)
 {
-    clear();
-    for (int i = 0; i < state.winrows && i + state.rowoff < buf->numrows; i++)
-        mvprintw(i, 0, "%s", buf->rows[i + state.rowoff].line);
-    if (state.cy >= buf->numrows) state.cy = buf->numrows - 1;
-    if (state.cy < 0) state.cy = 0;
-    if (state.cx > buf->rows[state.cy].length) state.cx = buf->rows[state.cy].length;
-    if (state.cx < 0) state.cx = 0;
-    if (state.cy >= state.rowoff && state.cy < state.rowoff + state.winrows)
-        move(state.cy - state.rowoff, state.cx);
-    refresh();
+	FILE* f = tmpfile();
+	if (!buf || !f) return NULL;
+
+	for (int i = 0; i < buf->numrows; i++) {
+		fwrite(buf->rows[i].line, 1, buf->rows[i].length, f);
+		fputc('\n', f);
+	}
+
+	rewind(f);
+	return f;
 }
 
 void insertChar(row* r, int at, char c)
 {
-    if (!r) return;
-    if (at < 0) at = 0;
-    if (at > r->length) at = r->length;
+	if (!r) return;
+	if (at <= 0) at = 0;
+	if (at > r->length) at = r->length;
 
-    r->line = realloc(r->line, r->length + 2);
-    memmove(&r->line[at + 1], &r->line[at], r->length - at + 1);
-    r->line[at] = c;
-    r->length++;
+	char* temp = realloc(r->line, r->length + 2);
+	if (!temp) return;
+	r->line = temp;
+	memmove(&r->line[at + 1],
+			&r->line[at],
+			r->length - at + 1);
+
+	r->line[at] = c;
+	r->length++;
 }
 
-void deleteChar(row* r, int at)
+void deleteChar(buffer* buf, int rowIndex, int at)
 {
-    if (!r) return;
-    if (at < 0 || at >= r->length) return;
-    memmove(&r->line[at],
-            &r->line[at + 1],
-            r->length - at);
-    r->length--;
-    char* tmp = realloc(r->line, r->length + 1);
-    if (tmp) r->line = tmp;
+	row* r = &buf->rows[rowIndex];
+	if (!r) return;
+	if (at <= 0) {
+		deleteCR(buf, rowIndex);
+		return;
+	}
+	if (at >= r->length) return;
+
+	memmove(&r->line[at],
+			&r->line[at + 1],
+			r->length - at);
+	r->length--;
+
+	char* tmp = realloc(r->line, r->length + 1);
+	if (tmp) r->line = tmp;
 }
 
-void insertNewline(buffer* buf, int row_index, int at)
+void insertCR(buffer* buf, int rowIndex, int at)
+{
+	if (!buf || rowIndex < 0 || rowIndex >= buf->numrows) return;
+	if (at < 0) at = 0;
+
+	row* r = &buf->rows[rowIndex];
+	if (at > r->length) at = r->length;
+	int rightLen = r->length - at;
+
+	row newRow;
+	newRow.length = rightLen;
+	newRow.line = malloc(newRow.length + 1);
+	if (!newRow.line) return;
+	memcpy(newRow.line,
+			r->line + at,
+			newRow.length);
+	newRow.line[newRow.length] = '\0';
+
+	r->length = at;
+	r->line[at] = '\0';
+	if (buf->numrows == buf->capacity) {
+		int newCapacity = buf->capacity ? buf->capacity * 2 : 16;
+		row* temp = realloc(buf->rows, newCapacity * sizeof(row));
+
+		if (!temp) {
+			free(newRow.line);
+			return;
+		}
+
+		buf->rows = temp;
+		buf->capacity = newCapacity;
+	}
+
+	memmove(&buf->rows[rowIndex + 2],
+			&buf->rows[rowIndex + 1],
+			(buf->numrows - rowIndex - 1) * sizeof(row));
+
+	buf->rows[rowIndex + 1] = newRow;
+	buf->numrows++;
+}
+
+void deleteCR(buffer* buf, int rowIndex)
+{
+	if (!buf || rowIndex <= 0 || rowIndex >= buf->numrows) return;
+
+	row* prev = &buf->rows[rowIndex - 1];
+	row* curr = &buf->rows[rowIndex];
+
+	int oldLen = prev->length;
+	char* temp = realloc(prev->line, prev->length + curr->length + 1);
+	if (!temp) return;
+	prev->line = temp;
+
+	memcpy(prev->line + oldLen,
+			curr->line,
+			curr->length + 1);
+
+	prev->length += curr->length;
+	free(curr->line);
+
+	memmove(&buf->rows[rowIndex],
+			&buf->rows[rowIndex + 1],
+			(buf->numrows - rowIndex - 1) * sizeof(row));
+
+	buf->numrows--;
+}
+
+void freeBuf(buffer* buf)
 {
     if (!buf) return;
-    if (row_index < 0 || row_index >= buf->numrows) return;
-    row* r = &buf->rows[row_index];
-    if (at < 0) at = 0;
-    if (at > r->length) at = r->length;
-    int right_len = r->length - at;
 
-    row new_row;
-    new_row.length = right_len;
-    new_row.line = malloc(right_len + 1);
-    if (!new_row.line) return;
+    for (int i = 0; i < buf->numrows; i++)
+        free(buf->rows[i].line);
 
-    memcpy(new_row.line, r->line + at, right_len);
-    new_row.line[right_len] = '\0';
-
-    r->length = at;
-    r->line[at] = '\0';
-    if (buf->numrows == buf->capacity) {
-        int new_capacity = buf->capacity ? buf->capacity * 2 : 16;
-
-        row* tmp = realloc(buf->rows, new_capacity * sizeof(row));
-        if (!tmp) {
-            free(new_row.line);
-            return;
-        }
-
-        buf->rows = tmp;
-        buf->capacity = new_capacity;
-    }
-
-    memmove(&buf->rows[row_index + 2],
-            &buf->rows[row_index + 1],
-            (buf->numrows - row_index - 1) * sizeof(row));
-
-    buf->rows[row_index + 1] = new_row;
-    buf->numrows++;
+    free(buf->rows);
+    free(buf);
 }
 
-void saveBuf(buffer* buf)
+long int fileGetline(char **lineptr, size_t *n, FILE *stream)
 {
-    if (!buf || !filenames[state.curBuf]) return;
-    FILE* f = fopen(filenames[state.curBuf], "w");
-    if (!f) return;
+	if (!lineptr || !n || !stream) return -1;
+	if (*lineptr == NULL || *n == 0) {
+		*n = 128;
+		*lineptr = malloc(*n);
+		if (!*lineptr) return -1;
+	}
+	size_t pos = 0;
 
-    for (int i = 0; i < buf->numrows; i++) {
-        fwrite(buf->rows[i].line, 1, buf->rows[i].length, f);
-        fputc('\n', f);
-    }
+	while (1) {
+		int c = fgetc(stream);
+		if (c == EOF) {
+			if (pos == 0) return -1;
+			break;
+		}
 
-    fclose(f);
+		if (pos + 1 >= *n) {
+			size_t newSize = *n * 2;
+			char *temp = realloc(*lineptr, newSize);
+			if (!temp) return -1;
+			*lineptr = temp;
+			*n = newSize;
+		}
+
+		(*lineptr)[pos++] = (char)c;
+		if (c == '\n') break;
+	}
+
+	(*lineptr)[pos] = '\0';
+	return (long int)pos;
+}
+
+void printBuf(buffer* buf)
+{
+	for (int i = 0; i < buf->numrows; i++)
+		printf("%s\n", buf->rows[i].line);
 }

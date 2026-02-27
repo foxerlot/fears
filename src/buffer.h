@@ -1,27 +1,28 @@
 #ifndef BUFFER_H
 #define BUFFER_H
 
-#include "fears.h"
+#include <stdio.h>
 
 typedef struct {
-    int length;
-    char* line;
+	int length;
+	char* line;
 } row;
 
 typedef struct {
-    int numrows;
-    int capacity;
-    row *rows;
+	row* rows;
+	int numrows;
+	int capacity;
 } buffer;
 
-extern EditorState state;
-
-buffer* fileToBuf(const char*);
-buffer* newBuffer(void);
-void draw(buffer*);
+buffer* newBuf(void);
+buffer* fileToBuf(FILE*);
+FILE* bufToFile(buffer*);
 void insertChar(row*, int, char);
-void deleteChar(row*, int);
-void insertNewline(buffer*, int, int);
-void saveBuf(buffer*);
+void deleteChar(buffer*, int, int);
+void insertCR(buffer*, int, int);
+void deleteCR(buffer*, int);
+void freeBuf(buffer* buf);
+long int fileGetline(char**, size_t*, FILE*);
+void printBuf(buffer*);
 
 #endif
