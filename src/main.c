@@ -79,42 +79,42 @@ void editorLoop(void) {
 
         if (state.mode == MODE_NORMAL) {
             switch (ch) {
-                case 'q':
-                    return;
-                    break;
-                case 'i':
-                    state.mode = MODE_INSERT;
-                    break;
-                case 'h':
-                    if (state.cx > 0) state.cx--;
-                    break;
-                case 'j':
-                    if (state.cy < buflist[state.curbuf]->numrows - 1) state.cy++;
-                    break;
-                case 'k':
-                    if (state.cy > 0) state.cy--;
-                    break;
-                case 'l':
-                    if (state.cx < buflist[state.curbuf]->rows[state.cy].length) state.cx++;
-                    break;
-                case 'b':
-                    if (buflist[state.curbuf+1] != NULL)
-                        state.curbuf++;
-                    else
-                        state.curbuf = 0;
-                    break;
-                case ARROW_UP:
-                    if (state.cy > 0) state.cy--;
-                    break;
-                case ARROW_DOWN:
-                    if (state.cy < buflist[state.curbuf]->numrows - 1) state.cy++;
-                    break;
-                case ARROW_LEFT:
-                    if (state.cx > 0) state.cx--;
-                    break;
-                case ARROW_RIGHT:
-                    if (state.cx < buflist[state.curbuf]->rows[state.cy].length) state.cx++;
-                    break;
+            case 'q':
+                return;
+                break;
+            case 'i':
+                state.mode = MODE_INSERT;
+                break;
+            case 'h':
+                if (state.cx > 0) state.cx--;
+                break;
+            case 'j':
+                if (state.cy < buflist[state.curbuf]->numrows - 1) state.cy++;
+                break;
+            case 'k':
+                if (state.cy > 0) state.cy--;
+                break;
+            case 'l':
+                if (state.cx < buflist[state.curbuf]->rows[state.cy].length) state.cx++;
+                break;
+            case 'b':
+                if (buflist[state.curbuf+1] != NULL)
+                    state.curbuf++;
+                else
+                    state.curbuf = 0;
+                break;
+            case ARROW_UP:
+                if (state.cy > 0) state.cy--;
+                break;
+            case ARROW_DOWN:
+                if (state.cy < buflist[state.curbuf]->numrows - 1) state.cy++;
+                break;
+            case ARROW_LEFT:
+                if (state.cx > 0) state.cx--;
+                break;
+            case ARROW_RIGHT:
+                if (state.cx < buflist[state.curbuf]->rows[state.cy].length) state.cx++;
+                break;
             }
         }
         else if (state.mode == MODE_INSERT) {
