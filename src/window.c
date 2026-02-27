@@ -1,6 +1,7 @@
 #include <ncurses.h>
 #include <stdlib.h>
 #include "window.h"
+#include "buffer.h"
 
 void draw(window* win, buffer* buf)
 {

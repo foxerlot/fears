@@ -9,5 +9,6 @@ typedef struct {
 } window;
 
 void draw(window*, buffer*);
+window* newWin(int, int);
 
 #endif

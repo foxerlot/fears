@@ -5,7 +5,6 @@
 #include <sys/types.h>
 #include "buffer.h"
 #include "editor.h"
-#include "window.h"
 
 #ifdef WIN32
 #   include <io.h>
@@ -16,16 +15,14 @@
 #endif
 
 int bufcount = 0;
-buffer* buflist[8] = {NULL};
 
 void parseArgs(int, char**);
-void editorInit(void);
-void editorCleanup(int);
 
 int main(int argc, char** argv)
 {
     parseArgs(argc, argv);
     editorInit();
+    sleep(2);
     editorCleanup(EXIT_SUCCESS);
     return 0;
 }
@@ -38,20 +35,4 @@ void parseArgs(int argc, char** argv)
 
     buflist[bufcount++] = fileToBuf(f);
     fclose(f);
-}
-
-void editorInit(void)
-{
-    initscr();
-    raw();
-    keypad(stdscr, TRUE);
-    noecho();
-    draw(buflist[state.curbuf]);
-}
-
-void editorCleanup(int statusc) // statusc = status code
-{
-    endwin();
-    freeBuf(buflist[state.curbuf]);
-    exit(statusc);
 }

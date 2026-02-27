@@ -1,6 +1,8 @@
 #ifndef EDITOR_H
 #define EDITOR_H
 
+#include "buffer.h"
+
 typedef enum {
     NORMAL_MODE,
     INSERT_MODE,
@@ -18,5 +20,9 @@ typedef struct {
 } EditorState;
 
 extern EditorState state;
+extern buffer* buflist[];
+
+void editorInit(void);
+void editorCleanup(int);
 
 #endif
