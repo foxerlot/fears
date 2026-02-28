@@ -21,7 +21,7 @@ void insertChar(row*, int, char);
 void deleteChar(buffer*, int, int);
 void insertCR(buffer*, int, int);
 void deleteCR(buffer*, int);
-void freeBuf(buffer* buf);
+void freeBuf(buffer*);
 long int fileGetline(char**, size_t*, FILE*);
 void printBuf(buffer*);
 

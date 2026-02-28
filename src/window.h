@@ -6,9 +6,21 @@
 typedef struct {
     int winrows;
     int wincols;
+    int cy;
+    int cx;
+    int rowoff;
+    int coloff;
 } window;
 
-void draw(window*, buffer*);
-window* newWin(int, int);
+typedef struct {
+    window* windows;
+    int scrrows;
+    int scrcols;
+} screen;
+
+window newWin(int, int);
+void freeWin(window*);
+void drawWin(window*);
+void drawBuf(window*, buffer*);
 
 #endif
