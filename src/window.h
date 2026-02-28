@@ -4,6 +4,7 @@
 #include "buffer.h"
 
 typedef struct {
+    buffer* buf;
     int winrows;
     int wincols;
     int cy;
@@ -14,8 +15,12 @@ typedef struct {
 
 typedef struct {
     window* windows;
+    int numwins;
     int scrrows;
     int scrcols;
 } screen;
+
+void drawScreen(screen*);
+void drawWin(window*);
 
 #endif
