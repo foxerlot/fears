@@ -18,9 +18,4 @@ typedef struct {
     int scrcols;
 } screen;
 
-window newWin(int, int);
-void freeWin(window*);
-void drawWin(window*);
-void drawBuf(window*, buffer*);
-
 #endif
