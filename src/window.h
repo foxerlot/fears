@@ -1,39 +1,31 @@
 #ifndef WINDOW_H
 #define WINDOW_H
 
-#include "buffer.h"
+typedef enum {
+    LEAF_NODE,
+    SPLIT_NODE
+} nodeType;
 
 typedef enum {
-    FR_LEAF,
-    FR_ROW,
-    FR_COL,
-} frame_type;
+    VERTICAL,
+    HORIZONTAL
+} splitType;
 
-typedef struct window {
-    buffer *buf;
+typedef struct frameNode {
+    nodeType type;
 
-    int cursor_row;
-    int cursor_col;
+    union {
+        buffer* buf;
+        splitType split;
+    } item;
 
-    int row_offset;
-    int col_offset;
+    struct frameNode* parent;
+    struct frameNode* left;
+    struct frameNode* right;
+} frameNode;
 
-    int x, y;
-    int width, height;
-} window;
-
-typedef struct frame {
-    frame_type type;
-
-    struct frame *parent;
-    struct frame *child;
-    struct frame *next;
-    struct frame *prev;
-
-    window *win;
-
-    int x, y;
-    int width, height;
-} frame;
+frameNode* newLeaf(buffer*, frameNode*);
+frameNode* splitLeaf(frameNode*, splitType, buffer*);
+void drawNode(frameNode*);
 
 #endif
