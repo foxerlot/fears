@@ -23,6 +23,7 @@ typedef struct frameNode {
 
     int x, y;
     int width, height;
+    int cx, cy;
 
     struct frameNode* parent;
     struct frameNode* left;
@@ -32,5 +33,8 @@ typedef struct frameNode {
 frameNode* newLeaf(buffer*, frameNode*);
 frameNode* newSplit(frameNode*, splitType, buffer*);
 void drawNode(frameNode*, int, int, int, int);
+frameNode* neighborInDir(frameNode**, int, frameNode*, int);
+void collectLeaves(frameNode*, frameNode**, int*);
+frameNode* getRoot(frameNode*);
 
 #endif
