@@ -16,7 +16,7 @@ frameNode* newLeaf(buffer* buf, frameNode* parent)
 
     n->type = LEAF_NODE;
     n->item.buf = buf;
-    if (parent) n->parent = parent;
+    n->parent = parent;
 
     return n;
 }
@@ -63,32 +63,31 @@ frameNode* newSplit(frameNode* node, splitType split, buffer* newBuf)
  */
 void drawNode(frameNode* node, int x, int y, int w, int h)
 {
-    if (!node) return;
+    if (!node || w <= 0 || h <= 0) return; // TODO: make limits for how many windows can be on screen
 
     if (node->type == LEAF_NODE) {
         node->x = x;
         node->y = y;
         node->width = w;
         node->height = h;
-        buffer* buf = node->item.buf;
+        const buffer* buf = node->item.buf;
         for (int i = 0; i < buf->numrows && i < h - 1; i++) {
+            const row* r = &buf->rows[i];
+            const int len = r->length < w ? r->length : w;
             move(y + i, x);
-            for (int j = 0; j < buf->rows[i].length && j < w; j++)
-                addch(buf->rows[i].line[j]);
+            addnstr(r->line, len);
         }
-        for (int i = 0; i < w; i++)
-            mvaddch(y + h - 1, x + i, '-');
+        mvhline(y + h - 1, x, '-', w); // TODO: add statusline
     } else if (node->type == SPLIT_NODE) {
         if (node->item.split == VERTICAL) {
-            int wLeft = w * 0.5; // TODO: add better ratios
-            int wRight = w - wLeft - 1; // -1 to account for the border
+            const int wLeft = w * 0.5; // TODO: add better ratios
+            const int wRight = w - wLeft - 1; // -1 to account for the border
             drawNode(node->left, x, y, wLeft, h);
-            for (int i = 0; i < h; i++)
-                mvaddch(y + i, x + wLeft, '|');
+            mvvline(y, x + wLeft, '|', h);
             drawNode(node->right, x + wLeft + 1, y, wRight, h);
         } else { // node->type == SPLIT_NODE
-            int hTop = h * 0.5;
-            int hBot = h - hTop;
+            const int hTop = h * 0.5;
+            const int hBot = h - hTop;
             drawNode(node->left, x, y, w, hTop);
             drawNode(node->right, x, y + hTop, w, hBot);
         }
@@ -96,27 +95,30 @@ void drawNode(frameNode* node, int x, int y, int w, int h)
 }
 
 /*
- * Returns closest neighbor.
+ * Returns the frameNode closest to `focused` in direction `dir`.
+ * Does not work very well lol...
+ * dir: 0=left, 1=down, 2=up, 3=right
  */
 frameNode* neighborInDir(frameNode** leaves, int count, frameNode* focused, int dir)
 {
-    // dir: 0=left, 1=down, 2=up, 3=right
+    if (!leaves || !focused || count <= 0) return NULL;
     frameNode* best = NULL;
     int bestDist = INT_MAX;
-    // int fcx = focused->x + focused->width / 2;
-    // int fcy = focused->y + focused->height / 2;
+    const int fx  = focused->x;
+    const int fy  = focused->y;
+    const int fx2 = fx + focused->width;
+    const int fy2 = fy + focused->height;
 
     for (int i = 0; i < count; i++) {
         frameNode* l = leaves[i];
         if (l == focused) continue;
-        // int lcx = l->x + l->width / 2;
-        // int lcy = l->y + l->height / 2;
+
         int dist;
         switch (dir) {
-            case 0: if (l->x + l->width > focused->x) continue; dist = focused->x - l->x; break;
-            case 1: if (l->y < focused->y + focused->height) continue; dist = l->y - focused->y; break;
-            case 2: if (l->y + l->height > focused->y) continue; dist = focused->y - l->y; break;
-            case 3: if (l->x < focused->x + focused->width) continue; dist = l->x - focused->x; break;
+            case 0: if (l->x + l->width  > fx)  continue; dist = fx  - l->x; break;
+            case 1: if (l->y             < fy2)  continue; dist = l->y - fy;  break;
+            case 2: if (l->y + l->height > fy)   continue; dist = fy  - l->y; break;
+            case 3: if (l->x             < fx2)  continue; dist = l->x - fx;  break;
             default: continue;
         }
         if (dist < bestDist) { bestDist = dist; best = l; }
@@ -124,19 +126,48 @@ frameNode* neighborInDir(frameNode** leaves, int count, frameNode* focused, int 
     return best;
 }
 
-void collectLeaves(frameNode* node, frameNode** leaves, int* count)
+/*
+ * Closes leaf and returns sibling as the new focus, or the new root if grandparent is NULL.
+ */
+frameNode* closeLeaf(frameNode* leaf)
+{
+    if (!leaf || leaf->type != LEAF_NODE) return NULL;
+    frameNode* parent = leaf->parent;
+    if (!parent) {
+        free(leaf);
+        return NULL;
+    }
+
+    frameNode* sibling = (parent->left == leaf) ? parent->right : parent->left;
+    frameNode* grandparent = parent->parent;
+
+    sibling->parent = grandparent;
+
+    if (grandparent) {
+        if (grandparent->left == parent)       grandparent->left  = sibling;
+        else if (grandparent->right == parent) grandparent->right = sibling;
+    }
+
+    free(leaf);
+    free(parent);
+
+    return sibling;
+}
+
+void countLeaves(frameNode* node, frameNode** leaves, int* count)
 {
     if (!node) return;
     if (node->type == LEAF_NODE)
         leaves[(*count)++] = node;
     else {
-        collectLeaves(node->left, leaves, count);
-        collectLeaves(node->right, leaves, count);
+        countLeaves(node->left, leaves, count);
+        countLeaves(node->right, leaves, count);
     }
 }
 
 frameNode* getRoot(frameNode* node)
 {
+    if (!node) return NULL;
     while (node->parent)
         node = node->parent;
     return node;

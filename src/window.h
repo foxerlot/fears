@@ -34,7 +34,8 @@ frameNode* newLeaf(buffer*, frameNode*);
 frameNode* newSplit(frameNode*, splitType, buffer*);
 void drawNode(frameNode*, int, int, int, int);
 frameNode* neighborInDir(frameNode**, int, frameNode*, int);
-void collectLeaves(frameNode*, frameNode**, int*);
+frameNode* closeLeaf(frameNode*);
+void countLeaves(frameNode*, frameNode**, int*);
 frameNode* getRoot(frameNode*);
 
 #endif
